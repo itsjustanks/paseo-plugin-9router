@@ -145,6 +145,10 @@ are optional controls, not prerequisites for native account/model views.
 | Version-gated Claude request fails | Review Maintenance and the reported installed/advertised client versions |
 | New UI does not appear | Update/reload `agent-link-9router` and reopen its sidebar entry |
 
+The router's **Update and restart…** action replaces its installed package and restarts the server.
+Wait for routed work to finish and review compiled-file customizations first. Plugin updates
+reload the Paseo panel separately; they do not upgrade or restart the router.
+
 ## Development
 
 ```sh

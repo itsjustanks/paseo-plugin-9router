@@ -935,10 +935,10 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
                   <Chip theme={theme} label={`→ ${version.data.latest ?? "?"}`} tone="warning" />
                   <Button
                     theme={theme}
-                    label="Update"
+                    label="Update and restart…"
                     tone="primary"
                     busy={updateMutation.isPending}
-                    onPress={() => updateMutation.mutate({})}
+                    onPress={() => setConfirmAction({ title: "Update and restart 9Router?", detail: "The upstream updater replaces the installed router and restarts it. Active routed requests will be interrupted, and compiled-file customizations can be lost. Review Maintenance and wait for routed work to finish before continuing.", run: () => updateMutation.mutate({}) })}
                   />
                 </>
               ) : (
