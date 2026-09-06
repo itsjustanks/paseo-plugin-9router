@@ -1,3 +1,4 @@
+import { handleRouterAddAstra } from "./astra.server";
 import type { PluginContext } from "@getpaseo/plugin";
 import {
   routerAliasRemove,
@@ -7,6 +8,7 @@ import {
   routerConnectStart,
   routerConnectionRemove,
   routerModelExpose,
+  routerAddAstra,
   routerModelUnexpose,
   routerRouteCli,
   routerSettingsSave,
@@ -136,6 +138,7 @@ export default function contribute(plugin: PluginContext) {
   plugin.handle(routerConnectComplete, handleRouterConnectComplete);
   plugin.handle(routerConnectionRemove, handleRouterConnectionRemove);
   plugin.handle(routerModelExpose, handleRouterModelExpose);
+  plugin.handle(routerAddAstra, handleRouterAddAstra);
   plugin.handle(routerModelUnexpose, handleRouterModelUnexpose);
   plugin.handle(routerAliasSet, handleRouterAliasSet);
   plugin.handle(routerAliasRemove, handleRouterAliasRemove);

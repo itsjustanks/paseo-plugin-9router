@@ -1,20 +1,19 @@
 #!/usr/bin/env node
-// Unit tests for the plugin's pure logic. Node 26 runs TypeScript directly, so
-// the module is imported as-is — but Node ESM wants the extension that Paseo's
-// bundler forbids, so the source is copied to a temp file with the specifier
-// rewritten. Same trick the other tests in this repo use.
+// Unit tests for pure logic, transpiled with the installed compiler for Node 20+.
 //
 // Run: node tests/router-logic.mjs
 
 import assert from "node:assert/strict";
-import { mkdtempSync, copyFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import ts from "../apps/paseo/node_modules/typescript/lib/typescript.js";
+
 const here = dirname(fileURLToPath(import.meta.url));
 const staging = mkdtempSync(join(tmpdir(), "agent-link-tests-"));
-copyFileSync(join(here, "..", "apps", "paseo", "router.logic.ts"), join(staging, "router.logic.ts"));
+writeFileSync(join(staging, "router.logic.mjs"), ts.transpileModule(readFileSync(join(here, "..", "apps", "paseo", "router.logic.ts"), "utf8"), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText);
 
 const {
   cliForModel,
@@ -30,7 +29,7 @@ const {
   quotaTone,
   sameModelSet,
   DEAD_PROVIDER_IDS,
-} = await import(join(staging, "router.logic.ts"));
+} = await import(join(staging, "router.logic.mjs"));
 
 let passed = 0;
 const check = (name, fn) => {

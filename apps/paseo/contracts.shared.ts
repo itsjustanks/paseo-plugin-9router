@@ -252,6 +252,12 @@ export const routerConnectionRemove = defineRpc({
   output: z.object({ ok: z.boolean(), message: z.string() }),
 });
 
+export const routerAddAstra = defineRpc({
+  name: "agent-link-9router.router.model.add-astra",
+  input: z.object({}),
+  output: z.object({ ok: z.boolean(), message: z.string() }),
+});
+
 export const routerModelExpose = defineRpc({
   name: "agent-link-9router.router.model.expose",
   input: z.object({ providerAlias: z.string(), id: z.string(), name: z.string().optional() }),

@@ -1,3 +1,7 @@
+import { Modal } from "@getpaseo/plugin/react-native";
+import { Card, Step, Chip, Button, Field, Note, QuotaBar, SpendRow, Toggle, Row } from "./ui.client";
+import { Navigation, Overview, Guide, SectionHeading, type TabId } from "./navigation.client";
+import { ModelCatalog } from "./catalog.client";
 import type { PluginSurfaceProps, PluginTheme } from "@getpaseo/plugin";
 import { useRpc } from "@getpaseo/plugin";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,6 +16,7 @@ import {
   routerConnectStart,
   routerConnectionRemove,
   routerModelExpose,
+  routerAddAstra,
   routerRouteCli,
   routerSettingsSave,
   routerStart,
@@ -69,337 +74,9 @@ type Theme = PluginTheme;
 
 // ------------------------------------------------------------- primitives
 
-function Card({ theme, children }: { theme: Theme; children: React.ReactNode }) {
-  return (
-    <View
-      style={{
-        backgroundColor: theme.colors.surface1,
-        borderColor: theme.colors.border,
-        borderWidth: 1,
-        borderRadius: 10,
-        padding: 14,
-        gap: 10,
-        marginBottom: 12,
-      }}
-    >
-      {children}
-    </View>
-  );
-}
-
-function Step({ theme, index, title, hint }: { theme: Theme; index: number; title: string; hint?: string }) {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-      <View
-        style={{
-          width: 20,
-          height: 20,
-          borderRadius: 10,
-          backgroundColor: theme.colors.surface2,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11, fontWeight: "700" }}>{index}</Text>
-      </View>
-      <Text style={{ color: theme.colors.foreground, fontSize: 14, fontWeight: "600", flex: 1 }}>{title}</Text>
-      {hint ? <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>{hint}</Text> : null}
-    </View>
-  );
-}
-
-function Chip({ theme, label, tone = "neutral" }: { theme: Theme; label: string; tone?: "success" | "warning" | "danger" | "neutral" }) {
-  const color =
-    tone === "success"
-      ? theme.colors.statusSuccess
-      : tone === "warning"
-        ? theme.colors.statusWarning
-        : tone === "danger"
-          ? theme.colors.statusDanger
-          : theme.colors.foregroundMuted;
-  return (
-    <View style={{ borderColor: color, borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-      <Text style={{ color, fontSize: 11, fontWeight: "600" }}>{label}</Text>
-    </View>
-  );
-}
-
-function Button({
-  theme,
-  label,
-  onPress,
-  tone = "default",
-  busy,
-  disabled,
-}: {
-  theme: Theme;
-  label: string;
-  onPress: () => void;
-  tone?: "default" | "primary" | "danger";
-  busy?: boolean;
-  disabled?: boolean;
-}) {
-  const inactive = disabled || busy;
-  const background = tone === "primary" ? theme.colors.accent : theme.colors.surface2;
-  const color = tone === "primary" ? theme.colors.accentForeground : tone === "danger" ? theme.colors.statusDanger : theme.colors.foreground;
-  return (
-    <Pressable
-      onPress={inactive ? undefined : onPress}
-      style={{
-        backgroundColor: background,
-        borderColor: theme.colors.border,
-        borderWidth: tone === "primary" ? 0 : 1,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 7,
-        opacity: inactive ? 0.5 : 1,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-      }}
-    >
-      {busy ? <ActivityIndicator size="small" color={color} /> : null}
-      <Text style={{ color, fontSize: 13, fontWeight: "600" }}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function Field({
-  theme,
-  value,
-  onChangeText,
-  placeholder,
-  secure,
-}: {
-  theme: Theme;
-  value: string;
-  onChangeText: (next: string) => void;
-  placeholder: string;
-  secure?: boolean;
-}) {
-  return (
-    <TextInput
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor={theme.colors.foregroundMuted}
-      secureTextEntry={secure}
-      autoCapitalize="none"
-      autoCorrect={false}
-      style={{
-        backgroundColor: theme.colors.surface0,
-        borderColor: theme.colors.border,
-        borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        paddingVertical: 7,
-        color: theme.colors.foreground,
-        fontSize: 13,
-        minWidth: 160,
-        flexGrow: 1,
-      }}
-    />
-  );
-}
-
-function Note({ theme, children, tone = "muted" }: { theme: Theme; children: React.ReactNode; tone?: "muted" | "warning" }) {
-  return (
-    <Text
-      style={{
-        color: tone === "warning" ? theme.colors.statusWarning : theme.colors.foregroundMuted,
-        fontSize: 12,
-        lineHeight: 17,
-      }}
-    >
-      {children}
-    </Text>
-  );
-}
-
-function QuotaBar({ theme, quota }: { theme: Theme; quota: RouterStatus["connections"][number]["usage"] extends null ? never : NonNullable<Connection["usage"]>["quotas"][number] }) {
-  const tone = quotaTone(quota);
-  const color =
-    tone === "success"
-      ? theme.colors.statusSuccess
-      : tone === "warning"
-        ? theme.colors.statusWarning
-        : tone === "danger"
-          ? theme.colors.statusDanger
-          : theme.colors.foregroundMuted;
-  const reset = formatReset(quota.resetAt);
-  return (
-    <View style={{ gap: 3 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>{quota.label}</Text>
-        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>
-          {quota.unlimited ? "unlimited" : `${Math.round(quota.remainingPercentage)}% left`}
-          {reset ? ` · ${reset}` : ""}
-        </Text>
-      </View>
-      <View style={{ height: 4, borderRadius: 2, backgroundColor: theme.colors.surface2, overflow: "hidden" }}>
-        <View style={{ width: `${Math.max(2, Math.min(100, quota.remainingPercentage))}%`, height: 4, backgroundColor: color }} />
-      </View>
-    </View>
-  );
-}
-
-/**
- * The spend side of an account, rendered beside its quota bars.
- *
- * Plan quota and spend limit are enforced separately, so an account can read
- * 86% headroom on both bars and still refuse every request because its spend
- * cap is hit. Showing only the bars is how that state stays invisible.
- */
-function SpendRow({ theme, extra }: { theme: Theme; extra: NonNullable<NonNullable<Connection["usage"]>["extra"]> }) {
-  const money = (value: number | null) =>
-    value === null ? null : `${extra.currency ? `${extra.currency} ` : "$"}${value.toFixed(2)}`;
-  const used = money(extra.usedCredits);
-  const cap = money(extra.monthlyLimit);
-  const blocked = extra.spendLimitReached;
-  const pct = extra.utilization;
-  return (
-    <View style={{ gap: 3 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>
-          extra usage{extra.enabled ? "" : " (off)"}
-        </Text>
-        <Text
-          style={{
-            color: blocked ? theme.colors.statusDanger : theme.colors.foregroundMuted,
-            fontSize: 11,
-          }}
-        >
-          {used && cap ? `${used} of ${cap}` : pct !== null ? `${Math.round(pct)}% used` : "—"}
-        </Text>
-      </View>
-      {pct !== null ? (
-        <View style={{ height: 4, borderRadius: 2, backgroundColor: theme.colors.surface2, overflow: "hidden" }}>
-          <View
-            style={{
-              width: `${Math.max(2, Math.min(100, pct))}%`,
-              height: 4,
-              backgroundColor: blocked ? theme.colors.statusDanger : theme.colors.statusWarning,
-            }}
-          />
-        </View>
-      ) : null}
-      {blocked ? (
-        <Text style={{ color: theme.colors.statusDanger, fontSize: 11 }}>
-          Spend limit reached — this account refuses requests even where the bars above show headroom.
-          {extra.enabled ? "" : " Extra usage is switched off, so nothing can overflow into credits."}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 // ------------------------------------------------------------------ surface
 
-const TABS = [
-  { id: "setup", label: "Setup" },
-  { id: "accounts", label: "Accounts" },
-  { id: "models", label: "Models" },
-  { id: "keys", label: "Keys" },
-  { id: "tuning", label: "Tuning" },
-  { id: "powerups", label: "Power-ups" },
-  { id: "usage", label: "Usage" },
-  { id: "routing", label: "Routing" },
-  { id: "logs", label: "Logs" },
-] as const;
-type TabId = (typeof TABS)[number]["id"];
-
-/** 9router's first-run password. Prefilled so setup is one press, not a lookup. */
 const DEFAULT_PASSWORD = "123456";
-
-function Tabs({ theme, active, onSelect, badge }: { theme: Theme; active: TabId; onSelect: (id: TabId) => void; badge: Partial<Record<TabId, string>> }) {
-  return (
-    <View style={{ flexDirection: "row", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-      {TABS.map((tab) => {
-        const selected = tab.id === active;
-        return (
-          <Pressable
-            key={tab.id}
-            onPress={() => onSelect(tab.id)}
-            style={{
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 999,
-              backgroundColor: selected ? theme.colors.accent : theme.colors.surface1,
-              borderColor: theme.colors.border,
-              borderWidth: selected ? 0 : 1,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
-            <Text
-              style={{
-                color: selected ? theme.colors.accentForeground : theme.colors.foregroundMuted,
-                fontSize: 13,
-                fontWeight: "600",
-              }}
-            >
-              {tab.label}
-            </Text>
-            {badge[tab.id] ? (
-              <View style={{ backgroundColor: selected ? theme.colors.accentForeground : theme.colors.surface2, borderRadius: 999, paddingHorizontal: 6 }}>
-                <Text style={{ color: selected ? theme.colors.accent : theme.colors.foregroundMuted, fontSize: 10, fontWeight: "700" }}>
-                  {badge[tab.id]}
-                </Text>
-              </View>
-            ) : null}
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-function Toggle({
-  theme,
-  label,
-  hint,
-  on,
-  busy,
-  disabled,
-  onToggle,
-}: {
-  theme: Theme;
-  label: string;
-  hint?: string;
-  on: boolean;
-  busy?: boolean;
-  disabled?: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <View style={{ gap: 3 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Text style={{ color: theme.colors.foreground, fontSize: 13, fontWeight: "600", flex: 1 }}>{label}</Text>
-        <Chip theme={theme} label={on ? "on" : "off"} tone={on ? "success" : "neutral"} />
-        <Button theme={theme} label={on ? "Turn off" : "Turn on"} busy={busy} disabled={disabled} onPress={onToggle} />
-      </View>
-      {hint ? <Note theme={theme}>{hint}</Note> : null}
-    </View>
-  );
-}
-
-function Row({ theme, label, value, tone }: { theme: Theme; label: string; value: string; tone?: "success" | "warning" | "danger" }) {
-  const color =
-    tone === "success"
-      ? theme.colors.statusSuccess
-      : tone === "warning"
-        ? theme.colors.statusWarning
-        : tone === "danger"
-          ? theme.colors.statusDanger
-          : theme.colors.foreground;
-  return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
-      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>{label}</Text>
-      <Text style={{ color, fontSize: 12, fontWeight: "600", flexShrink: 1, textAlign: "right" }}>{value}</Text>
-    </View>
-  );
-}
 
 /**
  * Durations here are read at a glance, not measured, so precision past the
@@ -425,7 +102,7 @@ function formatAgo(iso: string | null): string {
   return `${formatDuration((Date.now() - then) / 1000)} ago`;
 }
 
-export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
+export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
   const queryClient = useQueryClient();
   const callStatus = useRpc(routerStatus);
   const callStart = useRpc(routerStart);
@@ -437,6 +114,7 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
   const callConnectComplete = useRpc(routerConnectComplete);
   const callRemoveConnection = useRpc(routerConnectionRemove);
   const callExpose = useRpc(routerModelExpose);
+  const callAddAstra = useRpc(routerAddAstra);
   const callAliasSet = useRpc(routerAliasSet);
   const callAliasRemove = useRpc(routerAliasRemove);
   const callUsageStats = useRpc(routerUsageStats);
@@ -493,7 +171,10 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
   const data = status.data;
   const live = data?.running === true && data.auth.ok;
 
-  const [tab, setTab] = useState<TabId>("setup");
+  const [tab, setTab] = useState<TabId>("overview");
+  const [confirmAction, setConfirmAction] = useState<{ title: string; detail: string; run: () => void } | null>(null);
+  const [accountView, setAccountView] = useState<"balances" | "health" | "rotation">("balances");
+  const [accountQuery, setAccountQuery] = useState("");
   const [message, setMessage] = useState<string>("");
   // 9router ships with this password; prefilling it means Save works immediately
   // on a fresh install, and it is still editable for anyone who changed it.
@@ -524,8 +205,8 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
   const availability = useQuery({
     queryKey: ["agent-link-9router", "model-availability"],
     queryFn: () => callAvailability({}),
-    enabled: live && tab === "models",
-    refetchInterval: tab === "models" ? 15_000 : false,
+    enabled: live && ["models", "picker", "custom"].includes(tab),
+    refetchInterval: ["models", "picker", "custom"].includes(tab) ? 15_000 : false,
   });
   const order = useQuery({
     queryKey: ["agent-link-9router", "connection-order"],
@@ -634,7 +315,7 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
   const combos = useQuery({
     queryKey: ["agent-link-9router", "combos"],
     queryFn: () => callCombos({}),
-    enabled: live && (tab === "keys" || tab === "models"),
+    enabled: live && (tab === "keys" || ["models", "picker", "custom"].includes(tab)),
   });
   const powerUps = useQuery({
     queryKey: ["agent-link-9router", "power-ups"],
@@ -644,7 +325,7 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
   const syncSelection = useQuery({
     queryKey: ["agent-link-9router", "sync-selection"],
     queryFn: () => callSyncSelection({}),
-    enabled: tab === "models",
+    enabled: ["models", "picker", "custom"].includes(tab),
   });
   const tunnel = useQuery({
     queryKey: ["agent-link-9router", "tunnel"],
@@ -685,6 +366,7 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
   const activeMutation = useMutation({ mutationFn: callActiveSet, ...feedback });
   const removeMutation = useMutation({ mutationFn: callRemoveConnection, ...feedback });
   const exposeMutation = useMutation({ mutationFn: callExpose, ...feedback });
+  const addAstraMutation = useMutation({ mutationFn: callAddAstra, ...feedback });
   const aliasSetMutation = useMutation({ mutationFn: callAliasSet, ...feedback });
   const aliasRemoveMutation = useMutation({ mutationFn: callAliasRemove, ...feedback });
   const clearHoldMutation = useMutation({ mutationFn: callClearHold, ...feedback });
@@ -819,12 +501,12 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
     { done: Boolean(data?.running), label: "9router running" },
     { done: Boolean(data?.auth.ok), label: "Dashboard password saved" },
     { done: (data?.connections.length ?? 0) > 0, label: "At least one account connected" },
-    { done: data?.hijack.some((entry) => entry.routed) === true, label: "A CLI routed through 9router" },
+    { done: data?.paseo.modelsInSync === true, label: "9Router models synced into Paseo" },
   ];
   const remaining = steps.filter((step) => !step.done).length;
 
   const byProvider = new Map<string, Connection[]>();
-  for (const connection of data?.connections ?? []) {
+  for (const connection of (data?.connections ?? []).filter((c) => `${c.name} ${c.email ?? ""} ${providerLabel(c.provider)}`.toLowerCase().includes(accountQuery.toLowerCase()))) {
     const list = byProvider.get(connection.provider) ?? [];
     list.push(connection);
     byProvider.set(connection.provider, list);
@@ -894,51 +576,22 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: theme.colors.surface0 }} contentContainerStyle={{ padding: gap + 4 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
-        <Text style={{ color: theme.colors.foreground, fontSize: 18, fontWeight: "700", flex: 1 }}>9Router</Text>
-        {data?.running ? <Chip theme={theme} label={`v${data.version?.current ?? "?"}`} /> : null}
-        <Chip theme={theme} label={data?.running ? "running" : "stopped"} tone={data?.running ? "success" : "warning"} />
+    <ScrollView style={{ flex: 1, backgroundColor: theme.colors.surface0 }} contentContainerStyle={{ padding: layout.compact ? 16 : 28, paddingBottom: 48, width: "100%", maxWidth: 1180, alignSelf: "center" }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        <View style={{ flex: 1, minWidth: 180, gap: 4 }}>
+          <Text style={{ color: theme.colors.foreground, fontSize: 24, fontWeight: "700" }}>9Router</Text>
+          <Note theme={theme}>Selected host: {host?.label || "This Paseo host"}</Note>
+        </View>
+        {data?.running ? <Chip theme={theme} label={`v${data.version?.current ?? data.binary.version ?? "unknown"}`} /> : null}
+        <Chip theme={theme} label={status.isError ? "Connection unavailable" : live ? "Router connected" : data?.running ? "Sign-in needed" : "Router stopped"} tone={live ? "success" : "warning"} />
       </View>
-      <Note theme={theme}>
-        Accounts, quotas, rotation and fallback live in 9router. It rewrites each CLI's own config, so a routed binary
-        goes through it everywhere — Paseo's chats included.
-      </Note>
-
-      <View style={{ height: gap }} />
-      <Tabs
-        theme={theme}
-        active={tab}
-        onSelect={setTab}
-        badge={{
-          // A live problem outranks the setup count: an unfinished checklist can
-          // wait, an account that cannot take a request cannot.
-          setup:
-            health9.data && health9.data.state !== "ok"
-              ? health9.data.state === "bad"
-                ? "!"
-                : "•"
-              : remaining > 0
-                ? String(remaining)
-                : undefined,
-          accounts: holdCount > 0 ? String(holdCount) : undefined,
-          models: data?.models.count ? String(data.models.count) : undefined,
-          keys: keys.data?.keys.length ? String(keys.data.keys.length) : undefined,
-        }}
-      />
-
-      {message ? (
-        <Pressable onPress={() => setMessage("")}>
-          <View style={{ marginBottom: 12, padding: 10, borderRadius: 8, backgroundColor: theme.colors.surface2 }}>
-            <Text style={{ color: theme.colors.foreground, fontSize: 12 }}>{message}</Text>
-          </View>
-        </Pressable>
-      ) : null}
-
-      {/* ------------------------------------------------------------- SETUP */}
-      {tab === "setup" ? (
-        <>
-          {health9.data ? (
+      <Note theme={theme}>Your accounts, model picker, and request routing in one place. Choose a section to inspect its settings before changing them.</Note>
+      <Navigation theme={theme} compact={layout.compact} active={tab} onSelect={setTab} />
+      <SectionHeading theme={theme} tab={tab} />
+      {status.isError ? <Card theme={theme}><Step theme={theme} index={0} title="Could not read this router" /><Note theme={theme}>Check the selected Paseo host and saved router connection. Existing sessions keep their configuration.</Note><Button theme={theme} label="Retry connection" busy={status.isFetching} onPress={refresh} /></Card> : null}
+      <Modal open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null); }} title={confirmAction?.title ?? "Confirm change"}><Modal.Content>{confirmAction ? <View style={{ backgroundColor: theme.colors.surface1, padding: 20, gap: 14 }}><Note theme={theme} tone="warning">{confirmAction.detail}</Note><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}><Button theme={theme} label="Confirm change" tone="danger" onPress={() => { const run = confirmAction.run; setConfirmAction(null); run(); }} /><Button theme={theme} label="Cancel change" onPress={() => setConfirmAction(null)} /></View></View> : null}</Modal.Content></Modal>
+      {tab === "overview" ? <Overview theme={theme} compact={layout.compact} data={data} onSelect={setTab} refresh={refresh} refreshing={status.isFetching} /> : null}
+          {health9.data && ["overview", "usage"].includes(tab) ? (
             <Card theme={theme}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <Text style={{ color: theme.colors.foreground, fontSize: 15, fontWeight: "700", flex: 1 }}>
@@ -953,9 +606,7 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
                 />
               </View>
               <Note theme={theme}>
-                What the other tabs add up to. Diagnosing one outage used to mean reading account backoff, model
-                availability, the thinking check, failed requests and the daily burn, and holding the result in your
-                head.
+                Reported account, request, and router checks. Follow the suggested action for a finding; model availability can still change between requests.
               </Note>
               {health9.data.findings.map((finding) => (
                 <View key={finding.id} style={{ gap: 2, paddingVertical: 4 }}>
@@ -981,6 +632,19 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
               ))}
             </Card>
           ) : null}
+      {tab === "guide" ? <Guide theme={theme} onSelect={setTab} openDashboard={openDashboard} /> : null}
+      {message ? (
+        <Pressable accessibilityRole="button" accessibilityLabel="Dismiss notification" onPress={() => setMessage("")}>
+          <View style={{ marginBottom: 12, padding: 10, borderRadius: 8, backgroundColor: theme.colors.surface2 }}>
+            <Text style={{ color: theme.colors.foreground, fontSize: 12 }}>{message}</Text>
+          </View>
+        </Pressable>
+      ) : null}
+
+      {/* ------------------------------------------------------------- SETUP */}
+      {tab === "setup" ? (
+        <>
+
 
           <Card theme={theme}>
             <Step theme={theme} index={1} title="Checklist" hint={remaining === 0 ? "all done" : `${remaining} left`} />
@@ -1059,8 +723,8 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
                 <Button theme={theme} label="Start 9router" tone="primary" disabled={!data?.binary.path} busy={startMutation.isPending} onPress={() => startMutation.mutate({ action: "start" })} />
               ) : (
                 <>
-                  <Button theme={theme} label="Restart" busy={startMutation.isPending && startMutation.variables?.action === "restart"} onPress={() => startMutation.mutate({ action: "restart" })} />
-                  <Button theme={theme} label="Stop" busy={startMutation.isPending && startMutation.variables?.action === "stop"} onPress={() => startMutation.mutate({ action: "stop" })} />
+                  <Button theme={theme} label="Restart" busy={startMutation.isPending && startMutation.variables?.action === "restart"} onPress={() => setConfirmAction({ title: "Restart 9Router?", detail: "This interrupts requests using this router. Wait for active routed sessions to finish first.", run: () => startMutation.mutate({ action: "restart" }) })} />
+                  <Button theme={theme} label="Stop" busy={startMutation.isPending && startMutation.variables?.action === "stop"} onPress={() => setConfirmAction({ title: "Stop 9Router?", detail: "Models routed through this server will be unavailable until you start it again.", run: () => startMutation.mutate({ action: "stop" }) })} />
                 </>
               )}
               <Button theme={theme} label="Open dashboard" onPress={openDashboard} />
@@ -1157,7 +821,7 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
           </Card>
 
           <Card theme={theme}>
-            <Step theme={theme} index={data?.binary.path ? 4 : 5} title="Route the CLIs" />
+            <Step theme={theme} index={data?.binary.path ? 4 : 5} title="Machine-wide CLI routing" hint="optional" />
             <Note theme={theme}>
               Routing rewrites that CLI's own config, so every launch on this machine goes through 9router — not just
               Paseo's. Paseo's stock Claude and Codex chats pick it up with no further wiring. 9router routes more
@@ -1179,7 +843,7 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
                       tone={entry.routed ? "default" : "primary"}
                       disabled={!live}
                       busy={routeMutation.isPending && routeMutation.variables?.cli === entry.cli}
-                      onPress={() => routeMutation.mutate({ cli: entry.cli, routed: !entry.routed })}
+                      onPress={() => setConfirmAction({ title: `Change ${entry.label} routing?`, detail: "This rewrites this CLI’s configuration on the selected host and affects future launches outside Paseo too. Use the separate 9Router picker to keep direct CLI configuration.", run: () => routeMutation.mutate({ cli: entry.cli, routed: !entry.routed }) })}
                     />
                   ) : null}
                 </View>
@@ -1396,6 +1060,10 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
       {/* ---------------------------------------------------------- ACCOUNTS */}
       {tab === "accounts" ? (
         <>
+          <View accessibilityRole="tablist" style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+            {([ ["balances", "Accounts & quotas"], ["health", "Health & holds"], ["rotation", "Rotation & priority"] ] as const).map(([id, label]) => <Button key={id} theme={theme} label={label} tone={accountView === id ? "primary" : "default"} onPress={() => setAccountView(id)} />)}
+          </View>
+          {accountView === "rotation" ? <>
           <Card theme={theme}>
             <Step theme={theme} index={0} title="Selection strategy" hint="which account answers" />
             <Note theme={theme}>
@@ -1503,6 +1171,8 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
               </View>
             ))}
           </Card>
+          </> : null}
+          {accountView === "health" ? <>
           <Card theme={theme}>
             <Step theme={theme} index={0} title="Account health" hint={`${health.data?.connections.length ?? 0}`} />
             <Note theme={theme}>
@@ -1588,12 +1258,16 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
             </Card>
           ) : null}
 
+          </> : null}
+          {accountView === "balances" ? <>
           <Card theme={theme}>
             <Step theme={theme} index={0} title="Connected" hint={`${data?.connections.length ?? 0}`} />
             {!live ? <Note theme={theme} tone="warning">Finish Setup first — accounts need the dashboard password.</Note> : null}
             {live && (data?.connections.length ?? 0) === 0 ? (
               <Note theme={theme}>No accounts yet. Connect one below, or add any other provider from the dashboard.</Note>
             ) : null}
+            <Field theme={theme} value={accountQuery} onChangeText={setAccountQuery} placeholder="Search accounts or providers" />
+            {byProvider.size === 0 && accountQuery ? <Note theme={theme}>No accounts match this search.</Note> : null}
             {[...byProvider.entries()].map(([provider, list]) => (
               <View key={provider} style={{ gap: 8 }}>
                 <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12, fontWeight: "700" }}>
@@ -1668,62 +1342,21 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
               </View>
             ) : null}
           </Card>
+          </> : null}
         </>
       ) : null}
 
-      {/* ------------------------------------------------------------ MODELS */}
-      {tab === "models" ? (
-        <>
-          <Card theme={theme}>
-            <Step
-              theme={theme}
-              index={0}
-              title="Available now"
-              hint={`${availability.data?.models.filter((m) => m.state === "ready").length ?? 0} ready`}
-            />
-            <Note theme={theme}>
-              Being listed is not being usable. A model is only as available as the accounts behind it, and an
-              account locked to one model can be exhausted while the rest still answer.
-            </Note>
-            {availability.isLoading ? <ActivityIndicator color={theme.colors.accent} /> : null}
-            {(availability.data?.models ?? []).map((model) => (
-              <View
-                key={model.id}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                  paddingVertical: 4,
-                }}
-              >
-                <Chip
-                  theme={theme}
-                  label={model.state}
-                  tone={
-                    model.state === "ready"
-                      ? "success"
-                      : model.state === "limited"
-                        ? "danger"
-                        : model.state === "resting"
-                          ? "warning"
-                          : "neutral"
-                  }
-                />
-                <Text style={{ color: theme.colors.foreground, fontSize: 12, flex: 1 }} numberOfLines={1}>
-                  {model.id}
-                </Text>
-                <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>
-                  {model.usable}/{model.accounts}
-                </Text>
-              </View>
-            ))}
-          </Card>
+      {tab === "models" ? <>
+        <ModelCatalog theme={theme} compact={layout.compact} ids={data?.models.ids ?? []} availability={availability.data?.models ?? []} selected={syncSelection.data?.selected ?? []} live={live} selectionReady={syncSelection.isSuccess && !selectionMutation.isPending} testPending={testMutation.isPending} testing={testMutation.variables?.model} onTest={(model) => testMutation.mutate({ model })} onToggle={(id) => { const current = syncSelection.data?.selected ?? []; selectionMutation.mutate({ selected: current.includes(id) ? current.filter((model) => model !== id) : [...current, id] }); }} />
+        {testResult ? <Card theme={theme}><Chip theme={theme} label={testResult.ok ? "Request succeeded" : "Request failed"} tone={testResult.ok ? "success" : "danger"} /><Note theme={theme}>{testResult.model}: {testResult.message}</Note></Card> : null}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}><Button theme={theme} label="Sync picker selection" onPress={() => setTab("picker")} /><Button theme={theme} label="Add Astra or a custom model" onPress={() => setTab("custom")} /></View>
+      </> : null}
+      {tab === "picker" ? <>
           <Card theme={theme}>
             <Step theme={theme} index={0} title="In Paseo's picker" hint={data?.paseo.modelsInSync ? "in sync" : undefined} />
             <Note theme={theme}>
               Sync writes a single 9Router provider carrying every model 9router serves — Claude, Codex, and every
-              other connected pool — because 9router translates them all into one wire format. Paseo's own Claude and
-              Codex providers also keep their matching models, so a chat pinned to one of those keeps working.
+              other connected pool — because 9router translates them all into one wire format. Your direct Claude and Codex CLI settings stay separate. Select the 9Router provider when creating a routed session.
             </Note>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
               <Chip theme={theme} label={`${data?.paseo.listedModels.claude.length ?? 0} Claude`} tone={data?.paseo.listedModels.claude.length ? "success" : "neutral"} />
@@ -1743,73 +1376,28 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
                 ? `Syncing all ${data?.models.count ?? 0} models. Tap below to choose a shorter list instead.`
                 : `Syncing ${syncSelection.data?.selected.length} chosen model(s).`}
             </Note>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-              {(data?.models.ids ?? []).slice(0, 60).map((id) => {
-                  const chosen = syncSelection.data?.selected.includes(id) ?? false;
-                  return (
-                    <Pressable
-                      key={id}
-                      onPress={() => {
-                        const current = syncSelection.data?.selected ?? [];
-                        const next = chosen ? current.filter((entry) => entry !== id) : [...current, id];
-                        selectionMutation.mutate({ selected: next });
-                      }}
-                      style={{
-                        paddingHorizontal: 8,
-                        paddingVertical: 4,
-                        borderRadius: 999,
-                        borderWidth: 1,
-                        borderColor: chosen ? theme.colors.accent : theme.colors.border,
-                        backgroundColor: chosen ? theme.colors.accent : "transparent",
-                      }}
-                    >
-                      <Text style={{ color: chosen ? theme.colors.accentForeground : theme.colors.foregroundMuted, fontSize: 11 }}>{id}</Text>
-                    </Pressable>
-                  );
-                })}
-            </View>
+            <Button theme={theme} label="Choose models in the catalog" onPress={() => setTab("models")} />
             {(syncSelection.data?.selected.length ?? 0) > 0 ? (
               <Button theme={theme} label="Sync everything instead" onPress={() => selectionMutation.mutate({ selected: [] })} />
             ) : null}
           </Card>
 
-          <Card theme={theme}>
-            <Step theme={theme} index={0} title="Available" hint={`${data?.models.count ?? 0}`} />
-            {grouped.map((group) => (
-              <View key={group.prefix} style={{ gap: 4 }}>
-                <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12, fontWeight: "700" }}>
-                  {group.label} · {group.ids.length}
-                </Text>
-                {group.ids.slice(0, 8).map((id) => (
-                  <View key={id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11, flex: 1 }} numberOfLines={1}>
-                      {id}
-                    </Text>
-                    <Button
-                      theme={theme}
-                      label="Test"
-                      busy={testMutation.isPending && testMutation.variables?.model === id}
-                      onPress={() => testMutation.mutate({ model: id })}
-                    />
-                  </View>
-                ))}
-                {group.ids.length > 8 ? (
-                  <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>+{group.ids.length - 8} more in the dashboard</Text>
-                ) : null}
-              </View>
-            ))}
-            {testResult ? (
-              <View style={{ padding: 8, borderRadius: 8, backgroundColor: theme.colors.surface2, gap: 3 }}>
-                <Text style={{ color: testResult.ok ? theme.colors.statusSuccess : theme.colors.statusDanger, fontSize: 12, fontWeight: "600" }}>
-                  {testResult.ok ? "✓" : "✗"} {testResult.model}
-                </Text>
-                <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>{testResult.message}</Text>
-              </View>
-            ) : null}
-          </Card>
-
+      </> : null}
+      {tab === "custom" ? <>
           <Card theme={theme}>
             <Step theme={theme} index={0} title="Expose a model" />
+            <Note theme={theme}>
+              Add GPT-6 Astra to 9Router's catalogue, aliases and model picker in one step.
+            </Note>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              <Button theme={theme} label="Add GPT-6 Astra" disabled={!live}
+                busy={addAstraMutation.isPending} onPress={() => addAstraMutation.mutate({})} />
+              {data?.models.ids.includes("cx/gpt-6-astra") ? (
+                <Button theme={theme} label="Test Astra (uses quota)"
+                  busy={testMutation.isPending && testMutation.variables?.model === "cx/gpt-6-astra"}
+                  onPress={() => testMutation.mutate({ model: "cx/gpt-6-astra" })} />
+              ) : null}
+            </View>
             <Note theme={theme}>
               9router ships a fixed catalogue, so a model it does not know yet is invisible until you add it — this is
               how cc/claude-fable-5-1 got here.
@@ -1877,13 +1465,10 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
                 {combo.name}: {combo.models.join(" → ")}
               </Text>
             ))}
-            <Note theme={theme}>Combos are built in the dashboard, where you can order and name them properly.</Note>
-            <Button theme={theme} label="Open dashboard" onPress={openDashboard} />
+            <Note theme={theme}>Build and reorder fallback chains in Routing & Access → API keys & combos.</Note>
+            <Button theme={theme} label="Manage fallback combos" onPress={() => setTab("keys")} />
           </Card>
-        </>
-      ) : null}
-
-
+      </> : null}
 
       {/* -------------------------------------------------------------- KEYS */}
       {tab === "keys" ? (
@@ -2208,7 +1793,7 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
       {/* ---------------------------------------------------------- POWER-UPS */}
       {tab === "powerups" ? (
         <Card theme={theme}>
-          <Step theme={theme} index={0} title="Power-ups" />
+          <Step theme={theme} index={0} title="Optional maintenance actions" />
           <Note theme={theme}>
             These change software this plugin does not own. Each one is reversible here and re-checked from disk every
             time this tab opens, because a package upgrade silently undoes them.
@@ -2391,9 +1976,7 @@ export function AgentLinkSurface({ theme, layout }: PluginSurfaceProps) {
           <Card theme={theme}>
             <Step theme={theme} index={0} title="CLI tools" hint="where each one actually sends traffic" />
             <Note theme={theme}>
-              Installed and routed are different things. Codex reads its base URL from its own config.toml and never
-              sees Claude&apos;s environment variables, so it can be fully configured and still reach the vendor
-              directly — which is exactly what a 401 from api.openai.com means.
+              Direct provider access is a valid choice. Codex and Claude each use their own configuration. The separate 9Router provider in Paseo lets you choose routed models while keeping direct CLI settings. Change machine-wide routing only when you intend to use it for all launches.
             </Note>
             {!live ? <Note theme={theme} tone="warning">Finish Setup first.</Note> : null}
             {cliTools.isLoading ? <ActivityIndicator color={theme.colors.accent} /> : null}
