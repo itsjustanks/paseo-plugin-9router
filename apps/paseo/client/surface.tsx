@@ -46,6 +46,7 @@ import {
   routerHealth,
   routerHolds,
   routerClearHold,
+  routerDashboardOpen,
   routerTestModel,
   routerTuning,
   routerTuningSet,
@@ -159,6 +160,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
   const callSyncSelectionSet = useRpc(routerSyncSelectionSet);
   const callTunnel = useRpc(routerTunnel);
   const callTunnelSet = useRpc(routerTunnelSet);
+  const callDashboardOpen = useRpc(routerDashboardOpen);
   const callRequireApiKey = useRpc(routerRequireApiKey);
   const callForward = useRpc(routerLocalForward);
   const callForwardStop = useRpc(routerLocalForwardStop);
@@ -528,22 +530,27 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
     });
   };
 
-  // A published tunnel is a real public URL, so it works from whatever machine
-  // the app runs on. The SSH forward only works while it is open, and the
-  // loopback URL only means anything on the router's own host -- so prefer them
-  // in that order rather than always reaching for 127.0.0.1.
-  const tunnelUrl = (tunnel.data?.tunnels ?? []).find((entry) => entry.running && entry.url)?.url ?? null;
 
-  const openDashboard = () => {
-    const forwarded = forward.data?.open ? forward.data.url : null;
-    const target = forwarded ?? tunnelUrl ?? data?.dashboardUrl ?? "";
-    const hint = forwarded
-      ? "the forward is open, so this reaches the daemon's router."
-      : tunnelUrl
-        ? "this is the published tunnel — treat the URL as a credential."
-        : "paste it into a Paseo browser tab (⌘⇧B).";
-    openUrl(target.replace(/\/+$/, "") + (target.includes("/dashboard") ? "" : "/dashboard"), hint);
-  };
+  // The server picks the URL (forward, running tunnel, or loopback) and starts
+  // the Cloudflare tunnel itself when nothing is live yet, so one press works
+  // from any machine instead of always reaching for 127.0.0.1.
+  const dashboardMutation = useMutation({
+    mutationFn: callDashboardOpen,
+    onSuccess: (result) => {
+      if (result.message) setMessage(result.message);
+      const hint =
+        result.source === "forward"
+          ? "the forward is open, so this reaches the daemon's router."
+          : result.source === "tunnel"
+            ? "this is the published tunnel — treat the URL as a credential."
+            : "paste it into a Paseo browser tab (⌘⇧B).";
+      openUrl(result.url, hint);
+      if (result.source === "tunnel") void tunnel.refetch();
+    },
+    onError: (error: unknown) => setMessage(error instanceof Error ? error.message : String(error)),
+  });
+  const dashboardBusy = dashboardMutation.isPending;
+  const openDashboard = () => dashboardMutation.mutate({});
 
   const openForward = () => {
     const host = forwardHost.trim();
@@ -591,7 +598,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
       <SectionHeading theme={theme} tab={tab} />
       {status.isError ? <Card theme={theme}><Step theme={theme} index={0} title="Could not read this router" /><Note theme={theme}>Check the selected Paseo host and saved router connection. Existing sessions keep their configuration.</Note><Button theme={theme} label="Retry connection" busy={status.isFetching} onPress={refresh} /></Card> : null}
       <Modal open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null); }} title={confirmAction?.title ?? "Confirm change"}><Modal.Content>{confirmAction ? <View style={{ backgroundColor: theme.colors.surface1, padding: 20, gap: 14 }}><Note theme={theme} tone="warning">{confirmAction.detail}</Note><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}><Button theme={theme} label="Confirm change" tone="danger" onPress={() => { const run = confirmAction.run; setConfirmAction(null); run(); }} /><Button theme={theme} label="Cancel change" onPress={() => setConfirmAction(null)} /></View></View> : null}</Modal.Content></Modal>
-      {tab === "overview" ? <Overview theme={theme} compact={layout.compact} data={data} onSelect={setTab} refresh={refresh} refreshing={status.isFetching} /> : null}
+      {tab === "overview" ? <Overview theme={theme} compact={layout.compact} data={data} onSelect={setTab} refresh={refresh} refreshing={status.isFetching} openDashboard={openDashboard} dashboardBusy={dashboardBusy} /> : null}
           {health9.data && ["overview", "usage"].includes(tab) ? (
             <Card theme={theme}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1204,9 +1211,19 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
                     </Text>
                   ) : null}
                   {connection.backoffLevel > 0 ? (
-                    <Text style={{ color: theme.colors.statusWarning, fontSize: 11 }}>
-                      Backoff level {connection.backoffLevel} — 9router is resting this account.
-                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <Text style={{ color: theme.colors.statusWarning, fontSize: 11, flex: 1, minWidth: 160 }}>
+                        Backoff level {connection.backoffLevel} — 9router is resting this account.
+                      </Text>
+                      <Button
+                        theme={theme}
+                        label="Reset backoff"
+                        busy={clearHoldMutation.isPending}
+                        onPress={() =>
+                          clearHoldMutation.mutate({ provider: connection.provider, model: "", connectionId: connection.id })
+                        }
+                      />
+                    </View>
                   ) : null}
                   {connection.expiresInMinutes !== null ? (
                     <Text

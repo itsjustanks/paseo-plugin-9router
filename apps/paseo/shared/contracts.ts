@@ -573,6 +573,22 @@ export const routerLocalForwardStop = defineRpc({
   output: z.object({ ok: z.boolean(), message: z.string() }),
 });
 
+/**
+ * One call for "open the dashboard": pick the best reachable URL and, when
+ * nothing is live yet, start 9router's Cloudflare tunnel so the link works from
+ * whichever machine the app is on.
+ */
+export const routerDashboardOpen = defineRpc({
+  name: "agent-link-9router.router.dashboard.open",
+  input: z.object({}),
+  output: z.object({
+    ok: z.boolean(),
+    url: z.string(),
+    source: z.enum(["forward", "tunnel", "loopback"]),
+    message: z.string(),
+  }),
+});
+
 export const routerTunnelSet = defineRpc({
   name: "agent-link-9router.router.tunnel.set",
   input: z.object({ provider: z.enum(["cloudflare", "tailscale"]), enabled: z.boolean() }),

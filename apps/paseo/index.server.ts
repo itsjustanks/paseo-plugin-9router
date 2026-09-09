@@ -37,6 +37,7 @@ import {
   routerSyncSelectionSet,
   routerTunnel,
   routerTunnelSet,
+  routerDashboardOpen,
   routerLocalForward,
   routerLocalForwardStatus,
   routerLocalForwardStop,
@@ -99,6 +100,7 @@ import {
   handleRouterSyncSelectionSet,
   handleRouterTunnel,
   handleRouterTunnelSet,
+  handleRouterDashboardOpen,
   handleRouterLocalForward,
   handleRouterLocalForwardStatus,
   handleRouterLocalForwardStop,
@@ -163,6 +165,7 @@ export default function contribute(server: PluginServerContext) {
   server.handle(routerSyncSelectionSet, handleRouterSyncSelectionSet);
   server.handle(routerTunnel, handleRouterTunnel);
   server.handle(routerTunnelSet, handleRouterTunnelSet);
+  server.handle(routerDashboardOpen, handleRouterDashboardOpen);
   server.handle(routerLocalForward, handleRouterLocalForward);
   server.handle(routerLocalForwardStop, handleRouterLocalForwardStop);
   server.handle(routerLocalForwardStatus, handleRouterLocalForwardStatus);

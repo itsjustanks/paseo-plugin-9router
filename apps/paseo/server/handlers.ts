@@ -833,8 +833,16 @@ export async function handleRouterClearHold({
     );
     revived = result !== null;
   }
-  if (cleared?.ok || revived) return { ok: true, message: `Cleared the hold on ${provider}.` };
+  if (revived) return { ok: true, message: `Reset backoff on ${await connectionLabel(client, connectionId!, provider)}.` };
+  if (cleared?.ok) return { ok: true, message: `Cleared the hold on ${provider}.` };
   return { ok: false, message: cleared?.error ?? client.authError ?? "Could not clear that hold." };
+}
+
+/** Name an account for a message, falling back to its provider. */
+async function connectionLabel(client: RouterClient, connectionId: string, provider: string): Promise<string> {
+  const entry = await client.api<Record<string, unknown>>(`providers/${encodeURIComponent(connectionId)}`);
+  const source = (entry?.provider ?? entry?.connection ?? entry) as Record<string, unknown> | undefined;
+  return String(source?.email ?? source?.name ?? "") || provider;
 }
 
 export async function handleRouterComboCreate({ name, models }: { name: string; models: string[] }) {
@@ -1112,6 +1120,88 @@ export async function handleRouterTunnelSet({
   return {
     ok: true,
     message: enabled ? "Tunnel starting — its public URL appears once it connects." : "Tunnel stopped.",
+  };
+}
+
+const DASHBOARD_TUNNEL_WAIT_MS = 20_000;
+
+type TunnelState = { running: boolean; url: string };
+
+async function readCloudflareTunnel(client: RouterClient): Promise<TunnelState> {
+  const status = await client.api<{ tunnel?: Record<string, unknown> }>("tunnel/status");
+  const entry = status?.tunnel;
+  return {
+    running: entry?.running === true,
+    url: String(entry?.publicUrl ?? entry?.tunnelUrl ?? "").replace(/\/+$/, ""),
+  };
+}
+
+/** Poll until the tunnel reports running with a URL, or the budget runs out. */
+async function waitForTunnel(client: RouterClient, budgetMs: number): Promise<TunnelState | null> {
+  const deadline = Date.now() + budgetMs;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    const state = await readCloudflareTunnel(client);
+    if (state.running && state.url) return state;
+  }
+  return null;
+}
+
+/**
+ * Best reachable dashboard URL, starting the Cloudflare tunnel when nothing is
+ * live. Order: SSH forward (private), running tunnel (public), then loopback,
+ * which only means anything on the router's own host.
+ */
+export async function handleRouterDashboardOpen() {
+  const settings = readSettings();
+  const loopback = `${settings.url.replace(/\/+$/, "")}/dashboard`;
+  if (forwardAlive() && localForward) {
+    return {
+      ok: true,
+      url: `http://127.0.0.1:${localForward.port}/dashboard`,
+      source: "forward" as const,
+      message: "",
+    };
+  }
+  const client = new RouterClient();
+  const live = await readCloudflareTunnel(client);
+  if (live.running && live.url) {
+    return { ok: true, url: `${live.url}/dashboard`, source: "tunnel" as const, message: "" };
+  }
+  // Same rule handleRouterTunnelSet enforces: no bearer key, no public URL.
+  const config = await client.api<Record<string, unknown>>("settings");
+  if (config?.requireApiKey !== true) {
+    return {
+      ok: true,
+      url: loopback,
+      source: "loopback" as const,
+      message:
+        "Opening the loopback address. Turn on \"API key required on /v1\" in Host setup first to publish a tunnel — without it a tunnel is an open proxy onto your accounts.",
+    };
+  }
+  const started = await client.api<{ success?: boolean }>("tunnel/enable", { method: "POST" });
+  if (started === null) {
+    return {
+      ok: false,
+      url: loopback,
+      source: "loopback" as const,
+      message: client.authError ?? "Could not start the Cloudflare tunnel; opening the loopback address instead.",
+    };
+  }
+  const ready = await waitForTunnel(client, DASHBOARD_TUNNEL_WAIT_MS);
+  if (ready) {
+    return {
+      ok: true,
+      url: `${ready.url}/dashboard`,
+      source: "tunnel" as const,
+      message: "Started the Cloudflare tunnel. Its address is public — treat the URL as a credential.",
+    };
+  }
+  return {
+    ok: false,
+    url: loopback,
+    source: "loopback" as const,
+    message: "The Cloudflare tunnel is still starting. Try Open dashboard again shortly.",
   };
 }
 
