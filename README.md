@@ -123,6 +123,27 @@ Account credentials stay in 9router. The plugin stores its dashboard connection 
 API key lists show only the last four characters; explicitly copying a key puts its full value
 on your clipboard. Treat copied keys and real diagnostic logs as private.
 
+## Per-agent routing
+
+Machine-wide CLI routing (Host setup) rewrites `~/.claude/settings.json`, so every Claude Code
+process on the host goes through 9router. Per-agent routing does the same thing for the sessions
+Paseo opens, and nothing else.
+
+Open **Settings → Plugins → 9Router → Routing** (or run "Configure 9Router routing" from the
+Command Center) and turn on **Route Paseo agents through 9router**. From then on, every Claude
+session Paseo starts or resumes gets 9router's URL, API key and default model slots in its
+environment. Codex sessions are never touched; they read their own config. Terminal Claude Code
+keeps its direct connection unless you also route the CLI.
+
+The same screen controls what happens when a turn fails on a rate limit or "no available
+account": **Reset backoff automatically** clears backoff on every account that can serve that
+model (on by default), **Retry the turn after a reset** sends "Retry the last request." to the
+agent, and **Automatic retries per agent** caps how often that can happen.
+
+Each agent also has a **9Router** tab (workspace tabs and the explorer, or "Show 9Router for this
+agent" in the Command Center) showing its provider and model, whether it is routed, the accounts
+that can serve it with their backoff level, and a Reset backoff button per account.
+
 ## Using another host
 
 The selected Paseo host owns this plugin's requests and settings. Its `localhost` belongs to that
