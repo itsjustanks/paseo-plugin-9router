@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.12.0 — 2026-09-09
 
 ### Per-agent routing
 - New **Routing** settings screen under Settings → Plugins → 9Router (also "Configure 9Router routing" in the Command Center): route Paseo agents through 9router without touching the machine-wide CLI config, reset account backoff automatically on rate limits, optionally retry the turn, and cap automatic retries per agent (0–5, default 1). Routing is off by default.
