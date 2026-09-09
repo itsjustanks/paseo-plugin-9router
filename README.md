@@ -165,9 +165,11 @@ The preview uses fictional RPC fixtures and never connects to a daemon or provid
 `?empty`, `?offline`, and `?error` exercise theme and recovery states. See the
 [screenshot guide](docs/screenshots/README.md) before updating public images.
 
-The plugin uses the legacy combined Paseo entry and is verified with the 0.7.2 compiler.
-Paseo 0.8 runtime migration is not included in this release. Tests cover pure routing/usage logic,
-Astra registration and provider isolation, and complete catalog pagination on Node 20+.
+Requires Paseo 0.8 or newer. Since 0.11.0 the plugin uses the 0.8 runtime layout:
+`index.client.tsx` and `index.server.ts` entries with code under `client/`, `server/`, and
+`shared/`, and `requirements.paseo` set to `>=0.8.0`. Paseo 0.7 hosts should stay on 0.9.0.
+Tests cover pure routing/usage logic, Astra registration and provider isolation, and complete
+catalog pagination on Node 20+.
 
 The optional `agent-link` shell CLI is included at the repository root. It retains its existing
 terminal workflows; this release focuses on the Paseo plugin.
