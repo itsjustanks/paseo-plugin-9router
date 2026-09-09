@@ -1,5 +1,6 @@
 import { handleRouterAddAstra } from "./server/astra";
 import type { PluginServerContext } from "@getpaseo/plugin/server";
+import { routingSettings } from "./shared/settings";
 import {
   routerAliasRemove,
   routerAliasSet,
@@ -129,6 +130,7 @@ import {
 } from "./server/handlers";
 
 export default function contribute(server: PluginServerContext) {
+  server.registerSettings(routingSettings);
   server.handle(routerStatus, handleRouterStatus);
   server.handle(routerStart, handleRouterStart);
   server.handle(routerSettingsSave, handleRouterSettingsSave);
