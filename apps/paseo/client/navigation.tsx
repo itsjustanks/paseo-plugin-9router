@@ -1,8 +1,8 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 import type { PluginTheme } from "@getpaseo/plugin";
-import type { RouterStatus } from "./contracts.shared";
-import { Card, Step, Note, Chip, Button } from "./ui.client";
+import type { RouterStatus } from "../shared/contracts";
+import { Card, Step, Note, Chip, Button } from "./ui";
 
 export const SECTIONS = [
   { id: "overview", label: "Overview", detail: "Status and your next step", tabs: [{ id: "overview", label: "Overview", detail: "Check this host before making a change." }] },

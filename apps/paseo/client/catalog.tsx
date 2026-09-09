@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { PluginTheme } from "@getpaseo/plugin";
-import { Button, Card, Chip, Field, Note } from "./ui.client";
-import { catalogPage, type CatalogSort, type ModelReadiness } from "./catalog.logic";
+import { Button, Card, Chip, Field, Note } from "./ui";
+import { catalogPage, type CatalogSort, type ModelReadiness } from "./catalog-logic";
 export function ModelCatalog({ theme, compact, ids, availability, selected, live, selectionReady, testPending, testing, onTest, onToggle }: { theme: PluginTheme; compact: boolean; ids: string[]; availability: ModelReadiness[]; selected: string[]; live: boolean; selectionReady: boolean; testPending: boolean; testing?: string; onTest: (id: string) => void; onToggle: (id: string) => void }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<CatalogSort>("model");

@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { connect } from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { CliHijack, Connection, CustomModel, RouterStatus } from "./contracts.shared";
+import type { CliHijack, Connection, CustomModel, RouterStatus } from "../shared/contracts";
 import {
   DEAD_PROVIDER_IDS,
   cliForModel,
@@ -14,8 +14,8 @@ import {
   thinkingFor,
   sameModelSet,
   providerLabel,
-} from "./router.logic";
-import { applyPowerUp, listPowerUps } from "./powerups.server";
+} from "../shared/router-logic";
+import { applyPowerUp, listPowerUps } from "./powerups";
 import {
   DEFAULT_ROUTER_PASSWORD,
   ROOT,
@@ -28,8 +28,8 @@ import {
   startRouter,
   stopRouter,
   writeSettings,
-} from "./router.server";
-import { readUptime, readWarnings } from "./uptime.server";
+} from "./router";
+import { readUptime, readWarnings } from "./uptime";
 
 const HOME = homedir();
 

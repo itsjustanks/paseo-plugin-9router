@@ -4,8 +4,8 @@ const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 export default defineConfig({
   root: here("./"),
   resolve: { alias: [
-    { find: "@getpaseo/plugin/server", replacement: here("./plugin.tsx") },
-    { find: "@getpaseo/plugin/react-native", replacement: here("./plugin.tsx") },
+    { find: "@getpaseo/plugin/client/react-native", replacement: here("./plugin.tsx") },
+    { find: "@getpaseo/plugin/client", replacement: here("./plugin.tsx") },
     { find: "@getpaseo/plugin", replacement: here("./plugin.tsx") },
     { find: "react-native", replacement: "react-native-web" },
   ] },

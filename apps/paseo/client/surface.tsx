@@ -1,13 +1,14 @@
-import { Modal } from "@getpaseo/plugin/react-native";
-import { Card, Step, Chip, Button, Field, Note, QuotaBar, SpendRow, Toggle, Row } from "./ui.client";
-import { Navigation, Overview, Guide, SectionHeading, type TabId } from "./navigation.client";
-import { ModelCatalog } from "./catalog.client";
-import type { PluginSurfaceProps, PluginTheme } from "@getpaseo/plugin";
-import { useRpc } from "@getpaseo/plugin";
+import { Modal } from "@getpaseo/plugin/client/react-native";
+import { Card, Step, Chip, Button, Field, Note, QuotaBar, SpendRow, Toggle, Row } from "./ui";
+import { Navigation, Overview, Guide, SectionHeading, type TabId } from "./navigation";
+import { ModelCatalog } from "./catalog";
+import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
+import type { PluginTheme } from "@getpaseo/plugin";
+import { useRpc } from "@getpaseo/plugin/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Clipboard, Linking, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import type { CliHijack, Connection, RouterStatus } from "./contracts.shared";
+import type { CliHijack, Connection, RouterStatus } from "../shared/contracts";
 import {
   routerAliasRemove,
   routerAliasSet,
@@ -67,8 +68,8 @@ import {
   routerLocalForwardStatus,
   routerLocalForwardStop,
   routerRequireApiKey,
-} from "./contracts.shared";
-import { cliForModel, formatReset, groupModelIds, parseOauthPaste, providerLabel, quotaTone } from "./router.logic";
+} from "../shared/contracts";
+import { cliForModel, formatReset, groupModelIds, parseOauthPaste, providerLabel, quotaTone } from "../shared/router-logic";
 
 type Theme = PluginTheme;
 

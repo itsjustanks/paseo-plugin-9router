@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AgentLinkSurface } from "../../surface.client";
+import { AgentLinkSurface } from "../../client/surface";
 const queryClient = new QueryClient();
 const light = new URLSearchParams(location.search).has("light");
 const colors = light ? {

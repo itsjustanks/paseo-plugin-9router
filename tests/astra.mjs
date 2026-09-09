@@ -7,8 +7,8 @@ import ts from "../apps/paseo/node_modules/typescript/lib/typescript.js";
 const staging = mkdtempSync(join(tmpdir(), "router-astra-"));
 try {
   // The handler wrapper owns runtime imports; exercise its workflow with a router and SDK double.
-  const source = readFileSync(new URL("../apps/paseo/astra.server.ts", import.meta.url), "utf8")
-    .replace(/import \{ RouterClient, readSettings, writeSettings \} from "\.\/router\.server";\n/, "");
+  const source = readFileSync(new URL("../apps/paseo/server/astra.ts", import.meta.url), "utf8")
+    .replace(/import \{ RouterClient, readSettings, writeSettings \} from "\.\/router";\n/, "");
   writeFileSync(join(staging, "astra.mjs"), ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
   }).outputText);

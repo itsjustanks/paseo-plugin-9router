@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { ROOT } from "./router.server";
+import { ROOT } from "./router";
 
 /**
  * Uptime and restart history for the local 9router process.

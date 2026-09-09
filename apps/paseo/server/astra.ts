@@ -1,6 +1,6 @@
 import type { PluginHandlerContext } from "@getpaseo/plugin/server";
-import { RouterClient, readSettings, writeSettings } from "./router.server";
-import type { RouterSettings } from "./router.server";
+import { RouterClient, readSettings, writeSettings } from "./router";
+import type { RouterSettings } from "./router";
 
 const MODEL = "gpt-6-astra";
 const ROUTED_MODEL = `cx/${MODEL}`;

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { accessSync, constants, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
-import { cookieHeader, last4 } from "./router.logic";
+import { cookieHeader, last4 } from "../shared/router-logic";
 
 const HOME = homedir();
 

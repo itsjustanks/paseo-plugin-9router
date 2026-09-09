@@ -5,7 +5,7 @@ import { join } from "node:path";
 import ts from "../apps/paseo/node_modules/typescript/lib/typescript.js";
 const staging = mkdtempSync(join(tmpdir(), "router-catalog-"));
 try {
-  const source = readFileSync(new URL("../apps/paseo/catalog.logic.ts", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../apps/paseo/client/catalog-logic.ts", import.meta.url), "utf8");
   writeFileSync(join(staging, "catalog.mjs"), ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText);
   const { catalogPage } = await import(join(staging, "catalog.mjs"));
   const ids = [...Array.from({ length: 96 }, (_, i) => `demo/model-${String(i).padStart(2, "0")}`), "cx/gpt-6-astra"];

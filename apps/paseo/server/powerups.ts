@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { copyFileSync, existsSync, readFileSync, readdirSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
-import { findBinary } from "./router.server";
+import { findBinary } from "./router";
 
 const run = promisify(execFile);
 

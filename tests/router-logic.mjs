@@ -13,7 +13,7 @@ import ts from "../apps/paseo/node_modules/typescript/lib/typescript.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const staging = mkdtempSync(join(tmpdir(), "agent-link-tests-"));
-writeFileSync(join(staging, "router.logic.mjs"), ts.transpileModule(readFileSync(join(here, "..", "apps", "paseo", "router.logic.ts"), "utf8"), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText);
+writeFileSync(join(staging, "router.logic.mjs"), ts.transpileModule(readFileSync(join(here, "..", "apps", "paseo", "shared", "router-logic.ts"), "utf8"), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText);
 
 const {
   cliForModel,

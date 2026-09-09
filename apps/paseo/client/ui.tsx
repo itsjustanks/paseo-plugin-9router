@@ -1,8 +1,8 @@
 import React from "react";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
-import type { RouterStatus, Connection } from "./contracts.shared";
-import { quotaTone, formatReset } from "./router.logic";
+import type { RouterStatus, Connection } from "../shared/contracts";
+import { quotaTone, formatReset } from "../shared/router-logic";
 type Theme = PluginTheme;
 
 export function Card({ theme, children }: { theme: Theme; children: React.ReactNode }) {
