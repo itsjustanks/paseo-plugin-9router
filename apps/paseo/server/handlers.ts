@@ -38,7 +38,7 @@ const HOME = homedir();
  * rejected outright — a leading digit makes the whole config invalid and takes
  * the CLI down with it. The label carries the branding instead.
  */
-const PROVIDER_ID = "ninerouter";
+export const PROVIDER_ID = "ninerouter";
 /** The split Codex entry an earlier build wrote; removed on the next sync. */
 const LEGACY_CODEX_PROVIDER_ID = "ninerouter-codex";
 
@@ -384,6 +384,29 @@ export async function handleRouterSettingsSave({ url, password }: { url?: string
 
 // -------------------------------------------------------------- CLI routing
 
+/**
+ * The environment that points Claude Code at 9router: base URL, bearer key,
+ * and one routed `cc/` id per model slot. Shared by the machine-wide CLI
+ * hijack and the per-agent session hook so both pick models the same way.
+ */
+export async function claudeRoutingEnv(client: RouterClient, url: string, key: string): Promise<Record<string, string>> {
+  const ids = await client.models();
+  const pick = (needle: string) => ids.find((id) => id.startsWith("cc/") && id.includes(needle)) ?? null;
+  const env: Record<string, string> = {
+    ANTHROPIC_BASE_URL: url,
+    ANTHROPIC_AUTH_TOKEN: key,
+  };
+  for (const [slot, needle] of [
+    ["ANTHROPIC_DEFAULT_OPUS_MODEL", "opus"],
+    ["ANTHROPIC_DEFAULT_SONNET_MODEL", "sonnet"],
+    ["ANTHROPIC_DEFAULT_HAIKU_MODEL", "haiku"],
+  ] as const) {
+    const model = pick(needle);
+    if (model) env[slot] = model;
+  }
+  return env;
+}
+
 export async function handleRouterRouteCli({ cli, routed }: { cli: string; routed: boolean }) {
   const settings = readSettings();
   const client = new RouterClient(settings);
@@ -404,20 +427,7 @@ export async function handleRouterRouteCli({ cli, routed }: { cli: string; route
   if (!key) return { ok: false, message: client.authError ?? "No API key available." };
 
   if (cli === "claude") {
-    const ids = await client.models();
-    const pick = (needle: string) => ids.find((id) => id.startsWith("cc/") && id.includes(needle)) ?? null;
-    const env: Record<string, string> = {
-      ANTHROPIC_BASE_URL: settings.url,
-      ANTHROPIC_AUTH_TOKEN: key,
-    };
-    for (const [slot, needle] of [
-      ["ANTHROPIC_DEFAULT_OPUS_MODEL", "opus"],
-      ["ANTHROPIC_DEFAULT_SONNET_MODEL", "sonnet"],
-      ["ANTHROPIC_DEFAULT_HAIKU_MODEL", "haiku"],
-    ] as const) {
-      const model = pick(needle);
-      if (model) env[slot] = model;
-    }
+    const env = await claudeRoutingEnv(client, settings.url, key);
     const result = await client.apiJson<{ success?: boolean }>(path, "POST", { env });
     if (result === null) return { ok: false, message: client.authError ?? "Could not update Claude Code settings." };
     return { ok: true, message: "Claude Code now runs through 9router." };

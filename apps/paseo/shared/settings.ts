@@ -1,5 +1,6 @@
 import { defineSettings } from "@getpaseo/plugin";
 import { z } from "zod";
+import { ROUTING_SETTINGS_VERSION } from "./routing-logic";
 
 /**
  * Per-agent routing preferences. Host-scoped: every client of this daemon
@@ -23,14 +24,7 @@ export const ROUTING_SETTINGS_ID = "routing";
 export const routingSettings = defineSettings({
   id: ROUTING_SETTINGS_ID,
   scope: "host",
-  version: 1,
+  version: ROUTING_SETTINGS_VERSION,
   schema: RoutingSettingsSchema,
 });
 
-/** What the server assumes when the document cannot be read: everything off, no retries. */
-export const ROUTING_DEFAULTS_OFF: RoutingSettings = {
-  routeAgents: false,
-  autoResetBackoff: false,
-  retryOnRateLimit: false,
-  maxRetriesPerAgent: 0,
-};
