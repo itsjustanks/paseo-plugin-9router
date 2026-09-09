@@ -1,6 +1,7 @@
 import type { PluginClientContext } from "@getpaseo/plugin/client";
 import { AgentLinkSurface } from "./client/surface";
 import { RoutingSettingsScreen } from "./client/settings";
+import { RouterAgentPanel } from "./client/agent-panel";
 import { ROUTING_SETTINGS_ID } from "./shared/settings";
 
 export default function contribute(client: PluginClientContext) {
@@ -30,6 +31,24 @@ export default function contribute(client: PluginClientContext) {
     context: "global",
     onSelect({ openSettings }) {
       openSettings(ROUTING_SETTINGS_ID);
+    },
+  });
+  client.addWorkspacePanel({
+    id: "router-agent",
+    title: "9Router",
+    icon: "Users",
+    context: "agent",
+    locations: ["workspace", "explorer"],
+    Component: RouterAgentPanel,
+  });
+  client.addCommandCenterItem({
+    id: "show-router-agent",
+    title: "Show 9Router for this agent",
+    icon: "Users",
+    keywords: ["9router", "agent", "backoff", "accounts", "routed"],
+    context: "agent",
+    onSelect({ openPanel }) {
+      openPanel("router-agent");
     },
   });
   return () => {};
