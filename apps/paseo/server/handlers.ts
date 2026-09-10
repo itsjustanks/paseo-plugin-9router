@@ -8,12 +8,14 @@ import type { CliHijack, Connection, CustomModel, RouterStatus } from "../shared
 import {
   DEAD_PROVIDER_IDS,
   cliForModel,
+  dashboardEntryUrl,
   isLegacyShim,
   modelLabel,
   normalizeUsage,
   thinkingFor,
   sameModelSet,
   providerLabel,
+  tunnelAddress,
 } from "../shared/router-logic";
 import { applyPowerUp, listPowerUps } from "./powerups";
 import {
@@ -240,7 +242,7 @@ export async function handleRouterStatus(_input: unknown, { paseo }: PluginHandl
     binary: { path: binaryPath, version: null },
     running,
     url: settings.url,
-    dashboardUrl: `${settings.url}/dashboard`,
+    dashboardUrl: dashboardEntryUrl(settings.url),
     settingsPath: SETTINGS_PATH,
     version: null,
     auth: { configured: client.hasPassword, ok: false, error: running ? client.authError : "9router is not running." },
@@ -1086,7 +1088,7 @@ export async function handleRouterTunnel() {
     provider,
     enabled: source?.settingsEnabled === true || source?.enabled === true,
     running: source?.running === true,
-    url: String(source?.publicUrl ?? source?.tunnelUrl ?? ""),
+    url: tunnelAddress(source),
     note:
       provider === "tailscale" && source?.loggedIn === false
         ? "Tailscale is not signed in on this machine."
@@ -1140,10 +1142,7 @@ type TunnelState = { running: boolean; url: string };
 async function readCloudflareTunnel(client: RouterClient): Promise<TunnelState> {
   const status = await client.api<{ tunnel?: Record<string, unknown> }>("tunnel/status");
   const entry = status?.tunnel;
-  return {
-    running: entry?.running === true,
-    url: String(entry?.publicUrl ?? entry?.tunnelUrl ?? "").replace(/\/+$/, ""),
-  };
+  return { running: entry?.running === true, url: tunnelAddress(entry) };
 }
 
 /** Poll until the tunnel reports running with a URL, or the budget runs out. */
@@ -1161,32 +1160,62 @@ async function waitForTunnel(client: RouterClient, budgetMs: number): Promise<Tu
  * Best reachable dashboard URL, starting the Cloudflare tunnel when nothing is
  * live. Order: SSH forward (private), running tunnel (public), then loopback,
  * which only means anything on the router's own host.
+ *
+ * The browser this URL lands in holds no 9router session, so every path here
+ * goes through `dashboardEntryUrl`: `/dashboard` itself only 307s to `/login`.
+ * The message always names which address was chosen — the earlier version said
+ * nothing when a tunnel was already up, which read as the button doing nothing.
  */
 export async function handleRouterDashboardOpen() {
   const settings = readSettings();
-  const loopback = `${settings.url.replace(/\/+$/, "")}/dashboard`;
+  const loopback = dashboardEntryUrl(settings.url);
   if (forwardAlive() && localForward) {
     return {
       ok: true,
-      url: `http://127.0.0.1:${localForward.port}/dashboard`,
+      url: dashboardEntryUrl(`http://127.0.0.1:${localForward.port}`),
       source: "forward" as const,
-      message: "",
+      message: "Using the SSH forward — this reaches the daemon's router privately.",
     };
   }
   const client = new RouterClient();
+  // The management API wants the dashboard password; the bearer key is refused
+  // there. Say so up front, or every branch below fails with a tunnel-shaped
+  // message for what is really a missing password.
+  if (!client.hasPassword) {
+    return {
+      ok: false,
+      url: loopback,
+      source: "loopback" as const,
+      message:
+        "No dashboard password saved, so the tunnel cannot be checked or started. Save it under Guide & Setup → Dashboard password, then try again. The loopback address was copied instead.",
+    };
+  }
   const live = await readCloudflareTunnel(client);
   if (live.running && live.url) {
-    return { ok: true, url: `${live.url}/dashboard`, source: "tunnel" as const, message: "" };
+    return {
+      ok: true,
+      url: dashboardEntryUrl(live.url),
+      source: "tunnel" as const,
+      message: "Using the Cloudflare tunnel 9router already has open. Its address is public — treat it as a credential.",
+    };
   }
   // Same rule handleRouterTunnelSet enforces: no bearer key, no public URL.
   const config = await client.api<Record<string, unknown>>("settings");
-  if (config?.requireApiKey !== true) {
+  if (config === null) {
+    return {
+      ok: false,
+      url: loopback,
+      source: "loopback" as const,
+      message: `${client.authError ?? "9router's management API did not answer."} The loopback address was copied instead.`,
+    };
+  }
+  if (config.requireApiKey !== true) {
     return {
       ok: true,
       url: loopback,
       source: "loopback" as const,
       message:
-        "Opening the loopback address. Turn on \"API key required on /v1\" in Host setup first to publish a tunnel — without it a tunnel is an open proxy onto your accounts.",
+        "Using the loopback address. Turn on \"API key required on /v1\" in Host setup first to publish a tunnel — without it a tunnel is an open proxy onto your accounts.",
     };
   }
   const started = await client.api<{ success?: boolean }>("tunnel/enable", { method: "POST" });
@@ -1195,14 +1224,14 @@ export async function handleRouterDashboardOpen() {
       ok: false,
       url: loopback,
       source: "loopback" as const,
-      message: client.authError ?? "Could not start the Cloudflare tunnel; opening the loopback address instead.",
+      message: client.authError ?? "Could not start the Cloudflare tunnel; the loopback address was copied instead.",
     };
   }
   const ready = await waitForTunnel(client, DASHBOARD_TUNNEL_WAIT_MS);
   if (ready) {
     return {
       ok: true,
-      url: `${ready.url}/dashboard`,
+      url: dashboardEntryUrl(ready.url),
       source: "tunnel" as const,
       message: "Started the Cloudflare tunnel. Its address is public — treat the URL as a credential.",
     };
@@ -1433,9 +1462,9 @@ async function cloudflareFallback(): Promise<{ url: string | null; message: stri
 
   const status = await client.api<{ tunnel?: Record<string, unknown> }>("tunnel/status");
   const existing = status?.tunnel;
-  const liveUrl = String(existing?.publicUrl ?? existing?.tunnelUrl ?? "");
+  const liveUrl = tunnelAddress(existing);
   if (existing?.running === true && liveUrl) {
-    return { url: `${liveUrl.replace(/\/$/, "")}/dashboard`, message: "Using the Cloudflare tunnel 9router already has open." };
+    return { url: dashboardEntryUrl(liveUrl), message: "Using the Cloudflare tunnel 9router already has open." };
   }
 
   const started = await client.apiJson<{ success?: boolean }>("tunnel/cloudflare", "POST", { enabled: true });

@@ -18,7 +18,9 @@ writeFileSync(join(staging, "router.logic.mjs"), ts.transpileModule(readFileSync
 const {
   cliForModel,
   cookieHeader,
+  dashboardEntryUrl,
   formatReset,
+  tunnelAddress,
   groupModelIds,
   isLegacyShim,
   last4,
@@ -155,6 +157,21 @@ check("formatReset says when, or nothing", () => {
   assert.equal(formatReset(null, now), "");
   // A window whose reset has passed reads as due, not as a negative countdown.
   assert.equal(formatReset("2026-09-02T09:00:00Z", now), "resets now");
+});
+
+check("tunnelAddress prefers the raw tunnel host and trims the slash", () => {
+  assert.equal(
+    tunnelAddress({ tunnelUrl: "https://example-words.trycloudflare.com/", publicUrl: "https://branded.example/" }),
+    "https://example-words.trycloudflare.com",
+  );
+  assert.equal(tunnelAddress({ publicUrl: "https://branded.example" }), "https://branded.example");
+  assert.equal(tunnelAddress({ tunnelUrl: "", publicUrl: null }), "");
+  assert.equal(tunnelAddress(undefined), "");
+});
+
+check("dashboardEntryUrl lands a sessionless browser on the login page", () => {
+  assert.equal(dashboardEntryUrl("http://localhost:20128/"), "http://localhost:20128/login");
+  assert.equal(dashboardEntryUrl("https://example-words.trycloudflare.com"), "https://example-words.trycloudflare.com/login");
 });
 
 rmSync(staging, { recursive: true, force: true });

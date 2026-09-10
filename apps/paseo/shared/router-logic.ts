@@ -177,6 +177,27 @@ export function last4(secret: string | null | undefined): string | null {
   return secret.slice(-4);
 }
 
+/**
+ * The address a Cloudflare tunnel is reached at. 9router reports two: the raw
+ * `trycloudflare.com` hostname and a branded `publicUrl` that fronts it. The
+ * raw one is preferred — it is one hop shorter, and measured cold it answered
+ * in ~40ms where the branded host took ~400ms and depends on a second service
+ * staying up. The branded one is the fallback, not the default.
+ */
+export function tunnelAddress(entry: Record<string, unknown> | null | undefined): string {
+  const pick = (value: unknown) => (typeof value === "string" ? value.trim().replace(/\/+$/, "") : "");
+  return pick(entry?.tunnelUrl) || pick(entry?.publicUrl);
+}
+
+/**
+ * Where to land a browser that holds no 9router session. `/dashboard` answers
+ * 307 → `/login` to such a browser (and `/` 307s twice), so go straight to the
+ * page the router will show anyway; embedded views handle redirects worst.
+ */
+export function dashboardEntryUrl(base: string): string {
+  return `${base.replace(/\/+$/, "")}/login`;
+}
+
 /** Turn Set-Cookie headers into a Cookie request header (name=value pairs only). */
 export function cookieHeader(setCookies: readonly string[]): string {
   const jar = new Map<string, string>();

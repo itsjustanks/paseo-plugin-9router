@@ -38,7 +38,9 @@ No Paseo daemon restart is required. Reloading this plugin does not restart 9rou
 1. Select the intended Paseo host. Open **Guide & Setup → Host setup** and save the router's
    dashboard URL and password. The router password is separate from your Paseo password.
 2. Open **Accounts → Accounts & quotas** and connect Claude or Codex. Complete sign-in in your
-   normal browser. Other providers can be connected through 9router's dashboard.
+   normal browser. Other providers can be connected through 9router's dashboard — **Copy dashboard
+   link** copies its address (SSH forward, running tunnel, or loopback) for your normal browser; the
+   dashboard signs in with a cookie that Paseo's built-in browser tab cannot hold.
 3. Open **Models → Model catalog**. Search every model, optionally choose a shortlist, then open
    **Paseo picker → Sync into Paseo**.
 4. Create a new Paseo session and choose the **9Router** provider and the desired model.
@@ -199,6 +201,7 @@ are optional controls, not prerequisites for native account/model views.
 | --- | --- |
 | Router unavailable | Check the selected host, running 9router process, and Host setup connection |
 | Empty account list | Save the router dashboard password, then refresh |
+| Dashboard opens blank in Paseo | Expected: the dashboard needs a cookie that Paseo's browser tab cannot hold. **Copy dashboard link** puts the address on your clipboard — paste it into your normal browser and sign in there |
 | Model absent from Paseo | Refresh catalog, add a custom model if necessary, then sync the picker |
 | Model listed but failing | Account health, quota/spend caps, holds, and Requests & logs |
 | Direct Codex is shown | This is a valid configuration; choose 9Router for a routed session |

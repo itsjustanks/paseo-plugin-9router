@@ -333,7 +333,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
   const tunnel = useQuery({
     queryKey: ["agent-link-9router", "tunnel"],
     queryFn: () => callTunnel({}),
-    // Not gated to one tab: "Open dashboard" appears on several, and it needs
+    // Not gated to one tab: "Copy dashboard link" appears on several, and it needs
     // the tunnel URL to reach a remote router rather than this machine's
     // loopback. Polls fast only on Setup, where a tunnel is actually started.
     enabled: live,
@@ -484,6 +484,30 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
     return () => clearInterval(handle);
   }, [expiresAt]);
 
+  // The dashboard is a cookie-signed-in Next.js app. Same reason as the OAuth
+  // link above: Linking.openURL lands in Paseo's own browser tab, which has no
+  // cookie jar for the router to sign into, so the login page either renders
+  // blank or loops. This build exposes no way to escape that tab, so the link
+  // goes to the clipboard with the instruction to use a real browser.
+  const copyDashboardLink = (target: string, detail: string) => {
+    Clipboard.setString(target);
+    setMessage(`Dashboard link copied — paste it into your normal browser and sign in there. ${detail}`.trim());
+  };
+
+  // The server picks the URL (forward, running tunnel, or loopback) and starts
+  // the Cloudflare tunnel itself when nothing is live yet, so one press works
+  // from any machine instead of always reaching for 127.0.0.1.
+  // Declared before the loading return below: a hook after an early return
+  // changes the hook count once status arrives, which React reports as #310.
+  const dashboardMutation = useMutation({
+    mutationFn: callDashboardOpen,
+    onSuccess: (result) => {
+      copyDashboardLink(result.url, result.message);
+      if (result.source === "tunnel") void tunnel.refetch();
+    },
+    onError: (error: unknown) => setMessage(error instanceof Error ? error.message : String(error)),
+  });
+
   if (status.isLoading && !data) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.colors.surface0, alignItems: "center", justifyContent: "center" }}>
@@ -522,33 +546,6 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
     });
   };
 
-
-  const openUrl = (target: string, hint: string) => {
-    void Linking.openURL(target).catch(() => {
-      Clipboard.setString(target);
-      setMessage(`Copied ${target} — ${hint}`);
-    });
-  };
-
-
-  // The server picks the URL (forward, running tunnel, or loopback) and starts
-  // the Cloudflare tunnel itself when nothing is live yet, so one press works
-  // from any machine instead of always reaching for 127.0.0.1.
-  const dashboardMutation = useMutation({
-    mutationFn: callDashboardOpen,
-    onSuccess: (result) => {
-      if (result.message) setMessage(result.message);
-      const hint =
-        result.source === "forward"
-          ? "the forward is open, so this reaches the daemon's router."
-          : result.source === "tunnel"
-            ? "this is the published tunnel — treat the URL as a credential."
-            : "paste it into a Paseo browser tab (⌘⇧B).";
-      openUrl(result.url, hint);
-      if (result.source === "tunnel") void tunnel.refetch();
-    },
-    onError: (error: unknown) => setMessage(error instanceof Error ? error.message : String(error)),
-  });
   const dashboardBusy = dashboardMutation.isPending;
   const openDashboard = () => dashboardMutation.mutate({});
 
@@ -569,7 +566,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
       .then((result) => {
         setMessage(result.message);
         void forward.refetch();
-        if (result.ok && result.url) openUrl(result.url, "open it in a Paseo browser tab (⌘⇧B).");
+        if (result.ok && result.url) copyDashboardLink(result.url, result.message);
       })
       .catch((error: unknown) => setMessage(error instanceof Error ? error.message : String(error)));
   };
@@ -735,20 +732,22 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
                   <Button theme={theme} label="Stop" busy={startMutation.isPending && startMutation.variables?.action === "stop"} onPress={() => setConfirmAction({ title: "Stop 9Router?", detail: "Models routed through this server will be unavailable until you start it again.", run: () => startMutation.mutate({ action: "stop" }) })} />
                 </>
               )}
-              <Button theme={theme} label="Open dashboard" onPress={openDashboard} />
+              <Button theme={theme} label="Copy dashboard link" busy={dashboardBusy} onPress={openDashboard} />
               <Button
                 theme={theme}
-                label="Copy URL"
-                onPress={() => {
-                  Clipboard.setString(data?.dashboardUrl ?? "");
-                  setMessage("Dashboard URL copied. A Paseo browser tab is ⌘⇧B.");
-                }}
+                label="Copy loopback URL"
+                onPress={() => copyDashboardLink(data?.dashboardUrl ?? "", "This is the router's own loopback address, so it only works from that machine.")}
               />
             </View>
+            <Note theme={theme}>
+              The dashboard signs you in with a cookie, which Paseo's built-in browser tab cannot hold — it shows
+              a blank page there. Both buttons copy a link for your normal browser instead; "Copy dashboard link"
+              picks the SSH forward, the running Cloudflare tunnel, or loopback, in that order.
+            </Note>
             {forward.data?.open ? (
               <Note theme={theme} tone="warning">
                 Forwarding {forward.data.target} to 127.0.0.1:{forward.data.localPort}
-                {forwardCountdown ? ` — closes in ${forwardCountdown}` : ""}. "Open dashboard" now reaches that
+                {forwardCountdown ? ` — closes in ${forwardCountdown}` : ""}. "Copy dashboard link" now reaches that
                 router, not this one.
               </Note>
             ) : null}
@@ -1629,7 +1628,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
               <Button theme={theme} label="RTK" onPress={() => openLink("https://github.com/rtk-ai/rtk")} />
               <Button theme={theme} label="Caveman" onPress={() => openLink("https://github.com/JuliusBrussee/caveman")} />
               <Button theme={theme} label="Ponytail" onPress={() => openLink("https://github.com/DietrichGebert/ponytail")} />
-              <Button theme={theme} label="Token savers in the dashboard" onPress={() => openLink(`${data?.url ?? ""}/dashboard/token-saver`)} />
+              <Button theme={theme} label="Token savers in the dashboard" onPress={() => copyDashboardLink(`${data?.url ?? ""}/dashboard/token-saver`, "")} />
             </View>
             {!live ? <Note theme={theme} tone="warning">Finish Setup first.</Note> : null}
             {tuning.isLoading ? <ActivityIndicator color={theme.colors.accent} /> : null}
@@ -1713,7 +1712,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
                 ))}
               </View>
               <Note theme={theme}>Per-provider strategies and capacity adapters live in the dashboard.</Note>
-              <Button theme={theme} label="Open dashboard" onPress={openDashboard} />
+              <Button theme={theme} label="Copy dashboard link" onPress={openDashboard} />
             </Card>
           ) : null}
         </>

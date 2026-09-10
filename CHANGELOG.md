@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.14.1 — 2026-09-10
+
+### "Open dashboard" no longer lands on a blank page
+- The 9router dashboard signs you in with a session cookie, and Paseo's built-in browser tab has no cookie jar for it to use — so `Linking.openURL` produced a blank page or a login loop, even with the Cloudflare tunnel up and serving. Every dashboard button now does what the OAuth sign-in link already did: copies the link and tells you to paste it into your normal browser. Buttons read **Copy dashboard link**; the old **Copy URL** is now **Copy loopback URL** and says where it works. This build of the plugin SDK exposes no way to open an external browser, so the clipboard is the honest answer.
+- Links land on `/login`, not `/dashboard`: a browser with no 9router session gets a 307 to `/login` from `/dashboard` (and two hops from `/`), which embedded views handle worst. Measured against a live router through loopback and both tunnel hosts.
+- Tunnel address choice: 9router reports a raw `trycloudflare.com` host and a branded `publicUrl` in front of it. The raw host is now preferred everywhere (`tunnelAddress` in `shared/router-logic.ts`); cold it answered in ~40ms where the branded host took ~400ms and relies on a second service staying up. The branded host remains the fallback.
+- `routerDashboardOpen` always says which address it chose (SSH forward, the tunnel 9router already had open, or loopback) instead of returning an empty message when the tunnel was already running — which is what read as "the button does nothing".
+- A missing dashboard password is named as such. The management API refuses the bearer key, so without a saved password every tunnel check failed with a tunnel-shaped message; the handler now stops early and points at **Guide & Setup → Dashboard password**.
+
+### Notes
+- New pure helpers `tunnelAddress` and `dashboardEntryUrl` in `shared/router-logic.ts`, covered in `tests/router-logic.mjs`. The `requireApiKey` gate on publishing a tunnel is unchanged.
+
 ## 0.14.0 — 2026-09-10
 
 ### Workspace panel is about the workspace
