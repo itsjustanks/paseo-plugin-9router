@@ -228,7 +228,11 @@ npm run preview:ui
 ```
 
 The preview uses fictional RPC fixtures and never connects to a daemon or provider. `?light`,
-`?empty`, `?offline`, and `?error` exercise theme and recovery states. See the
+`?empty`, `?offline`, and `?error` exercise theme and recovery states; `?workspace`, `?agent[=id]`
+and `?pill` mount the workspace panel, agent panel and composer pill instead of the surface, each
+rendered once with no data and again when it arrives (`?late=<ms>`). `npm test` includes
+`tests/hook-order.mjs`, which mounts every contributed component through that transition under
+React's development build and fails on any hook-order complaint. See the
 [screenshot guide](docs/screenshots/README.md) before updating public images.
 
 Requires Paseo 0.8 or newer. Since 0.11.0 the plugin uses the 0.8 runtime layout:

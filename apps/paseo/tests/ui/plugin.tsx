@@ -1,9 +1,14 @@
 import React from "react";
 import { View, Text } from "react-native";
 import { useCallback } from "react";
+import { useSyncExternalStoreWithSelector } from "use-sync-external-store/shim/with-selector";
 export function defineRpc<T>(contract: T) { return contract; }
 const params = new URLSearchParams(location.search);
 const empty = params.has("empty"), offline = params.has("offline"), failed = params.has("error");
+// Panels and the pill first render before the host has any agent or workspace
+// for them (useAgent/useWorkspace -> null, queries -> undefined), then re-render
+// once data lands. `?late=<ms>` is how long the fixtures stay absent (default 300).
+const LATE_MS = Number(params.get("late") ?? 300);
 const ids = ["cc/claude-opus-5", "cc/claude-sonnet-4", "cx/gpt-6-astra", "cx/gpt-5.6-sol", ...Array.from({ length: 72 }, (_, i) => `demo/model-${String(i + 1).padStart(2, "0")}`)];
 const connections = ["Studio account", "Development account"].map((name, i) => ({ id: `fictional-account-${i}`, provider: i ? "codex" : "claude", authType: "oauth", name, email: `demo${i + 1}@example.com`, priority: i + 1, isActive: true, testStatus: "active", expiresAt: null, usage: { plan: i ? "Pro" : "Max", limitReached: false, quotas: [{ label: "Session allowance", used: i ? 32 : 16, total: 100, remaining: i ? 68 : 84, remainingPercentage: i ? 68 : 84, resetAt: null, unlimited: false }], extra: null } }));
 let selected: string[] = [];
@@ -48,8 +53,66 @@ async function call(contract: any, input: any) {
   if (name.includes("test")) Object.assign(result, { ok: true, message: "Fictional response received. No provider was contacted." });
   if (name.includes("logs") && "lines" in result) result.lines = ["[demo] Request routed successfully", "[demo] Provider allowance refreshed"];
   if (name === "model.add-astra") Object.assign(result, { ok: true, message: "Astra is already available in this fictional catalog." });
+  // Account-health RPCs the panels and pill read; answered after LATE_MS so `data` is undefined on the first render.
+  if (name === "connection-health") { await settle(); result.connections = offline ? [] : healthConnections; }
+  if (name === "routing-health") { await settle(); Object.assign(result, routingHealth()); }
+  if (name === "holds") { await settle(); Object.assign(result, { count: 1, holds: [{ connectionId: "fictional-account-0", provider: "claude", model: "cc/claude-opus-5", connectionName: "Studio account", status: "parked", until: null, lastError: "429 rate limited" }] }); }
+  if (name === "spend") { await settle(); Object.assign(result, offline ? { ok: false, message: "9router did not answer." } : { ok: true, totals: { label: "last 1d", requests: 1248, promptTokens: 2400000, completionTokens: 360000, cachedTokens: 1800000, cost: 18.4, lastUsed: null } }); }
+  if (name === "clear-hold") Object.assign(result, { ok: true, message: "Demo backoff reset." });
   return contract.output.parse(result);
 }
 export function useRpc(contract: any) { return useCallback((input: unknown) => call(contract, input), [contract]); }
+
+const settle = () => new Promise<void>((resolve) => setTimeout(resolve, LATE_MS));
+const healthConnections = [
+  { id: "fictional-account-0", provider: "claude", email: "demo1@example.com", name: "Studio account", isActive: true, backoffLevel: 0, modelLocks: [], lastError: "", lastErrorAt: null },
+  { id: "fictional-account-1", provider: "claude", email: "demo2@example.com", name: "Spare account", isActive: true, backoffLevel: 2, modelLocks: ["cc/claude-sonnet-4"], lastError: "429 rate limited", lastErrorAt: null },
+  { id: "fictional-account-2", provider: "claude", email: "demo3@example.com", name: "Stuck account", isActive: true, backoffLevel: 15, modelLocks: [], lastError: "429 rate limited", lastErrorAt: null },
+  { id: "fictional-account-3", provider: "codex", email: "demo4@example.com", name: "Development account", isActive: true, backoffLevel: 0, modelLocks: [], lastError: "", lastErrorAt: null },
+];
+const routingHealth = () => ({
+  checkedAt: new Date().toISOString(), routerReachable: !offline, routeAgents: true, showComposerPill: true, healthChecks: true,
+  pools: [{ pool: "claude", ready: 1, resting: 2, stuck: 1 }, { pool: "codex", ready: 1, resting: 0, stuck: 0 }],
+  stuck: offline ? [] : [{ id: "fictional-account-2", provider: "claude", label: "demo3@example.com", backoffLevel: 15, lastError: "429 rate limited", lastErrorAt: null }],
+});
+
+// --- Host client state: workspace, agents, and the Paseo API the workspace panel lists agents through.
+const WORKSPACE = { id: "ws-1", name: "paseo-plugin-9router", projectDisplayName: "Paseo plugins", projectId: "p-1", projectRootPath: "/home/demo/projects", directory: "/home/demo/projects/paseo-plugin-9router", projectKind: "git", kind: "directory", title: null, status: "done", statusEnteredAt: null, archivingAt: null, diffStat: null };
+const AGENTS = empty ? [] : [
+  { id: "agent-1", workspaceId: "ws-1", provider: "ninerouter", model: "cc/claude-opus-5", status: "running", title: "Routed Claude agent", cwd: "/home/demo", createdAt: "", updatedAt: "", lastActivityAt: "", currentModeId: null, thinkingOptionId: null, requiresAttention: false, attentionReason: null },
+  { id: "agent-2", workspaceId: "ws-1", provider: "claude", model: "cc/claude-sonnet-4", status: "idle", title: "Direct Claude agent", cwd: "/home/demo", createdAt: "", updatedAt: "", lastActivityAt: "", currentModeId: null, thinkingOptionId: null, requiresAttention: false, attentionReason: null },
+  { id: "agent-3", workspaceId: "ws-1", provider: "codex", model: "gpt-5.6-sol", status: "error", title: null, cwd: "/home/demo", createdAt: "", updatedAt: "", lastActivityAt: "", currentModeId: null, thinkingOptionId: null, requiresAttention: false, attentionReason: null },
+];
+let hostDataReady = false;
+const hostListeners = new Set<() => void>();
+const hostStore = {
+  subscribe(listener: () => void) { hostListeners.add(listener); return () => { hostListeners.delete(listener); }; },
+  getWorkspace: (id: string) => (hostDataReady && id === WORKSPACE.id ? WORKSPACE : null),
+  getAgent: (id: string) => (hostDataReady ? AGENTS.find((agent) => agent.id === id) ?? null : null),
+};
+setTimeout(() => { hostDataReady = true; for (const listener of hostListeners) listener(); }, LATE_MS);
+function shallowEqual(left: any, right: any) {
+  if (Object.is(left, right)) return true;
+  if (!left || !right || typeof left !== "object" || typeof right !== "object") return false;
+  const a = Object.entries(left), b = Object.entries(right);
+  return a.length === b.length && a.every(([key, value]) => Object.is(value, right[key]));
+}
+// Same shape as the SDK: a selector over an external store, null until the entity exists.
+function useEntity<T, S>(read: () => T | null, selector: (entity: T) => S): S | null {
+  return useSyncExternalStoreWithSelector(hostStore.subscribe, read, read, (entity: T | null) => (entity ? selector(entity) : null), shallowEqual);
+}
+export function useWorkspace<S>(workspaceId: string, selector: (workspace: any) => S): S | null { return useEntity(() => hostStore.getWorkspace(workspaceId), selector); }
+export function useAgent<S>(agentId: string, selector: (agent: any) => S): S | null { return useEntity(() => hostStore.getAgent(agentId), selector); }
+const paseo = {
+  agents: {
+    subscribe(listener: (update: any) => void) {
+      const timer = setTimeout(() => { for (const agent of AGENTS) listener({ kind: "upsert", agent }); }, LATE_MS);
+      return () => clearTimeout(timer);
+    },
+    async list() { await settle(); return { entries: AGENTS.map((agent) => ({ agent, project: null })) }; },
+  },
+};
+export function usePaseo() { return paseo; }
+export function Icon({ name, size = 14, color }: { name: string; size?: number; color?: string }) { return <Text accessibilityLabel={`icon ${name}`} style={{ color, fontSize: size }}>◆</Text>; }
 
 export const Modal = Object.assign(({ children, open, title }: any) => open ? <View role="dialog" aria-label={title} style={{ position: "absolute", inset: 0, zIndex: 100, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "center" }}><View style={{ maxWidth: 520, padding: 20, backgroundColor: "#1a2029" }}><Text style={{ color: "#eef1f6", fontSize: 18 }}>{title}</Text>{children}</View></View> : null, { Content: ({ children }: any) => <View>{children}</View> });

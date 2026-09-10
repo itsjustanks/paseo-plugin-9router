@@ -2,11 +2,11 @@
   "name": "agent-link",
   "private": true,
   "type": "module",
-  "version": "0.14.1",
+  "version": "0.14.2",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "preview:ui": "vite --config tests/ui/vite.config.mts",
-    "test": "node ../../tests/router-logic.mjs && node ../../tests/astra.mjs && node ../../tests/catalog.mjs && node ../../tests/routing-logic.mjs"
+    "test": "node ../../tests/router-logic.mjs && node ../../tests/astra.mjs && node ../../tests/catalog.mjs && node ../../tests/routing-logic.mjs && node ../../tests/hook-order.mjs"
   },
   "devDependencies": {
     "@getpaseo/plugin": "0.8.0-beta.1",
@@ -17,6 +17,7 @@
     "react-dom": "^19.1.0",
     "react-native": "0.81.5",
     "react-native-web": "^0.21.2",
+    "react-test-renderer": "^19.1.0",
     "typescript": "^5.9.3",
     "vite": "^8.2.2",
     "zod": "^4.4.3"

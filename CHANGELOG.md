@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.2 — 2026-09-10
+
+### The surface crashed on first paint: "Plugin failed: Minified React error #310"
+- Opening the 9Router surface in Paseo threw React error #310 ("Rendered more hooks than during the previous render"). In `client/surface.tsx`, `AgentLinkSurface` called `useMutation` for the dashboard button *after* its `if (status.isLoading && !data) return …` loading branch, so the first render ran one hook fewer than every render after router status arrived. The hook now runs before that return. This shipped in **0.11.0** (`042a177`) and affected 0.11.0 through 0.14.0 — none of those is a safe rollback. The moved hook landed in 0.14.1 alongside the dashboard-link work; this release records why and adds the tests that were missing.
+- Diagnosed with React's development build, which names the component and the hook: `React has detected a change in the order of Hooks called by AgentLinkSurface … 468. undefined → useContext`, then `Rendered more hooks than during the previous render.`
+
+### Notes
+- The preview harness only ever mounted `AgentLinkSurface`, and with an instant fixture it never saw the loading render, so the surface, `RouterWorkspacePanel`, `RouterAgentPanel` and `RoutingPill` all reached users untested. `tests/ui/preview.tsx` now mounts any of them (`?workspace`, `?agent[=id]`, `?pill`) and `tests/ui/plugin.tsx` stubs `useAgent`, `useWorkspace`, `usePaseo` and `useRpc` so each renders once with no data and again when it arrives (`?late=<ms>`), the sequence the live host produces.
+- New `tests/hook-order.mjs` (in `npm test`) mounts every contributed component through that absent → present transition under React's development build with `react-test-renderer` and fails on any hook-order complaint; it fails on the 0.14.0 surface and passes now. Panels and the pill were checked the same way: no other component had this class of bug.
+
 ## 0.14.1 — 2026-09-10
 
 ### "Open dashboard" no longer lands on a blank page
