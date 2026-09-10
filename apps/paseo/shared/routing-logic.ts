@@ -134,6 +134,55 @@ export function poolForAgent(provider: string, model: string | null, routerProvi
   return "codex";
 }
 
+export type AgentRouting = {
+  /** True only when the session's provider is the 9Router provider; the env hook cannot be observed from a client. */
+  routed: boolean;
+  pool: "claude" | "codex" | null;
+  /** routed = via 9Router; direct = talks to a pool's provider itself; unserved = a provider 9router does not carry. */
+  verdict: "routed" | "direct" | "unserved";
+  label: string;
+};
+
+/**
+ * One agent's relationship to the router, as every surface should describe it.
+ * Only the provider is evidence: an agent on the 9Router provider is routed, a
+ * Claude or Codex agent is talking to its provider directly, anything else is
+ * not 9router's business. Whether the session_open hook injected the router's
+ * environment into a `claude` session is not visible from the client, so it is
+ * never claimed here.
+ */
+export function agentRouting(provider: string, model: string | null, routerProviderId: string): AgentRouting {
+  const pool = poolForAgent(provider, model, routerProviderId);
+  if (provider === routerProviderId) return { routed: true, pool, verdict: "routed", label: "Via 9Router" };
+  if (pool === null) return { routed: false, pool: null, verdict: "unserved", label: "Not served by 9router" };
+  return { routed: false, pool, verdict: "direct", label: pool === "codex" ? "Direct · never routed" : "Direct provider" };
+}
+
+export type WorkspaceRoutingSummary = {
+  agents: number;
+  routed: number;
+  direct: number;
+  unserved: number;
+  /** Pools this workspace's agents draw from, Claude first; empty when no agent maps to one. */
+  pools: Array<"claude" | "codex">;
+};
+
+/** What a workspace's agents add up to, so the panel can lead with the pools that matter here. */
+export function workspaceRoutingSummary(
+  agents: ReadonlyArray<{ provider: string; model: string | null }>,
+  routerProviderId: string,
+): WorkspaceRoutingSummary {
+  const summary: WorkspaceRoutingSummary = { agents: agents.length, routed: 0, direct: 0, unserved: 0, pools: [] };
+  const pools = new Set<"claude" | "codex">();
+  for (const agent of agents) {
+    const routing = agentRouting(agent.provider, agent.model, routerProviderId);
+    summary[routing.verdict] += 1;
+    if (routing.pool) pools.add(routing.pool);
+  }
+  summary.pools = (["claude", "codex"] as const).filter((pool) => pools.has(pool));
+  return summary;
+}
+
 /** Accounts worth resetting: the pool's active connections currently in backoff. */
 export function connectionsToReset<T extends { provider: string; isActive: boolean; backoffLevel: number }>(
   connections: readonly T[],
