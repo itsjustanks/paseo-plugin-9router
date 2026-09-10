@@ -2,6 +2,7 @@ import { handleRouterAddAstra } from "./server/astra";
 import type { PluginServerContext } from "@getpaseo/plugin/server";
 import { routingSettings } from "./shared/settings";
 import { registerRoutingHooks } from "./server/hooks";
+import { handleRouterRoutingHealth, startRoutingHealthPoller } from "./server/health";
 import {
   routerAliasRemove,
   routerAliasSet,
@@ -65,6 +66,7 @@ import {
   routerThinkingCheck,
   routerUsageChart,
   routerHealth,
+  routerRoutingHealth,
 } from "./shared/contracts";
 import {
   handleRouterAliasRemove,
@@ -133,6 +135,7 @@ import {
 export default function contribute(server: PluginServerContext) {
   server.registerSettings(routingSettings);
   registerRoutingHooks(server);
+  const stopHealthPoller = startRoutingHealthPoller();
   server.handle(routerStatus, handleRouterStatus);
   server.handle(routerStart, handleRouterStart);
   server.handle(routerSettingsSave, handleRouterSettingsSave);
@@ -195,5 +198,8 @@ export default function contribute(server: PluginServerContext) {
   server.handle(routerThinkingCheck, handleRouterThinkingCheck);
   server.handle(routerUsageChart, handleRouterUsageChart);
   server.handle(routerHealth, handleRouterHealth);
-  return () => {};
+  server.handle(routerRoutingHealth, handleRouterRoutingHealth);
+  return () => {
+    stopHealthPoller();
+  };
 }

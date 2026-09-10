@@ -645,6 +645,49 @@ export const routerConnectionHealth = defineRpc({
   output: z.object({ connections: z.array(ConnectionHealthSchema) }),
 });
 
+/** Counts for one 9router pool, computed once on the server so every surface agrees. */
+export const PoolVerdictSchema = z.object({
+  pool: z.enum(["claude", "codex"]),
+  /** Active accounts with no backoff. */
+  ready: z.number(),
+  /** Active accounts in any backoff, stuck ones included. */
+  resting: z.number(),
+  /** Active accounts at or past the stuck threshold. */
+  stuck: z.number(),
+});
+
+/**
+ * The background health poller's cache. Pills across every agent read this
+ * instead of each asking the router; `checkedAt` says how fresh it is.
+ */
+export const routerRoutingHealth = defineRpc({
+  name: "agent-link-9router.router.routing-health",
+  input: z.object({}),
+  output: z.object({
+    /** ISO time of the last successful or failed check; null until the first one runs. */
+    checkedAt: z.string().nullable(),
+    /** False when the last check could not reach 9router. */
+    routerReachable: z.boolean(),
+    /** The settings the server is acting on, so clients do not need a second read. */
+    routeAgents: z.boolean(),
+    showComposerPill: z.boolean(),
+    healthChecks: z.boolean(),
+    pools: z.array(PoolVerdictSchema),
+    /** Active accounts stuck in backoff, the state that hides behind "active". */
+    stuck: z.array(
+      z.object({
+        id: z.string(),
+        provider: z.string(),
+        /** Email or name; never a token or key. */
+        label: z.string(),
+        backoffLevel: z.number(),
+        lastError: z.string(),
+        lastErrorAt: z.string().nullable(),
+      }),
+    ),
+  }),
+});
+
 /** A single request 9router handled, for reading a failure back. */
 export const RequestLogSchema = z.object({
   id: z.string(),
