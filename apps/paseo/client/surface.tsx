@@ -71,6 +71,8 @@ import {
   routerRequireApiKey,
 } from "../shared/contracts";
 import { cliForModel, formatReset, groupModelIds, parseOauthPaste, providerLabel, quotaTone } from "../shared/router-logic";
+import { stuckConnections } from "../shared/routing-logic";
+import { HOST_SPEND_DAYS, compactNumber } from "./accounts";
 
 type Theme = PluginTheme;
 
@@ -275,6 +277,15 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
     queryFn: () => callSpend({ days: null }),
     enabled: live && tab === "usage",
     refetchInterval: tab === "usage" ? 30_000 : false,
+  });
+  // The last day on its own: "since install" totals cannot say whether today is
+  // burning quota. Host-wide by necessity; nothing in 9router's usage records
+  // ties a request to a workspace.
+  const lastDay = useQuery({
+    queryKey: ["agent-link-9router", "spend", "last-day"],
+    queryFn: () => callSpend({ days: HOST_SPEND_DAYS }),
+    enabled: live && tab === "usage",
+    refetchInterval: tab === "usage" ? 60_000 : false,
   });
   const cliTools = useQuery({
     queryKey: ["agent-link-9router", "cli-tools"],
@@ -520,6 +531,10 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
   const hijackFor = (cli: "claude" | "codex") => data?.hijack.find((entry) => entry.cli === cli);
   const grouped = groupModelIds(data?.models.ids ?? []);
   const holdCount = holds.data?.count ?? 0;
+  // Active accounts 9router has backed off past the point it retries them. They
+  // still count as serving slots, so the pool looks healthier than it is.
+  const stuck = stuckConnections(health.data?.connections ?? []);
+  const lastDayTotals = lastDay.data?.ok ? lastDay.data.totals : null;
 
   // The setup checklist doubles as the wizard: each step knows whether it is
   // done, so a fresh install reads top-to-bottom and a working one is all ticks.
@@ -1180,6 +1195,26 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
           </Card>
           </> : null}
           {accountView === "health" ? <>
+          {stuck.length > 0 ? (
+            <Card theme={theme}>
+              <Step theme={theme} index={0} title="Stuck accounts" hint={`${stuck.length}`} />
+              <Note theme={theme} tone="warning">
+                {stuck.length === 1 ? "This account is" : "These accounts are"} active but backed off past the point 9router
+                retries {stuck.length === 1 ? "it" : "them"}, so the pool is serving from fewer accounts than it shows. Reset
+                backoff under Account health below to put {stuck.length === 1 ? "it" : "them"} back to work. Accounts are
+                shared by every workspace on this host, so the reset applies to all of them.
+              </Note>
+              {stuck.map((connection) => (
+                <Row
+                  theme={theme}
+                  key={connection.id}
+                  label={`${connection.email || connection.name || connection.id.slice(0, 8)} (${providerLabel(connection.provider)})`}
+                  value={`backoff ${connection.backoffLevel}${connection.lastError ? ` · ${connection.lastError}` : ""}`}
+                  tone="danger"
+                />
+              ))}
+            </Card>
+          ) : null}
           <Card theme={theme}>
             <Step theme={theme} index={0} title="Account health" hint={`${health.data?.connections.length ?? 0}`} />
             <Note theme={theme}>
@@ -1188,6 +1223,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
             </Note>
             {(health.data?.connections ?? []).map((connection) => {
               const expiring = connection.expiresInMinutes !== null && connection.expiresInMinutes < 60;
+              const isStuck = stuck.includes(connection);
               return (
                 <View
                   key={connection.id}
@@ -1199,8 +1235,8 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
                     </Text>
                     <Chip
                       theme={theme}
-                      label={connection.isActive ? "active" : "inactive"}
-                      tone={connection.isActive ? "success" : "neutral"}
+                      label={!connection.isActive ? "inactive" : isStuck ? `stuck · backoff ${connection.backoffLevel}` : "active"}
+                      tone={!connection.isActive ? "neutral" : isStuck ? "danger" : "success"}
                     />
                   </View>
                   {connection.modelLocks.length > 0 ? (
@@ -1928,6 +1964,23 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
                 value={`${(usageChart.data.totalTokens / 1e9).toFixed(2)}B tokens · $${usageChart.data.totalCost.toFixed(0)}`}
               />
             ) : null}
+          </Card>
+
+          <Card theme={theme}>
+            <Step theme={theme} index={0} title="Last day" hint={lastDayTotals ? lastDayTotals.label : `last ${HOST_SPEND_DAYS}d`} />
+            {lastDay.isLoading ? <ActivityIndicator color={theme.colors.accent} /> : null}
+            {lastDay.data && !lastDay.data.ok ? <Note theme={theme} tone="warning">{lastDay.data.message ?? "9router did not return usage."}</Note> : null}
+            {lastDayTotals ? (
+              <View style={{ gap: 5 }}>
+                <Row theme={theme} label="Requests" value={compactNumber(lastDayTotals.requests)} />
+                <Row theme={theme} label="Tokens in / out" value={`${compactNumber(lastDayTotals.promptTokens)} / ${compactNumber(lastDayTotals.completionTokens)}`} />
+                <Row theme={theme} label="API-equivalent cost" value={`$${lastDayTotals.cost.toFixed(2)}`} />
+              </View>
+            ) : null}
+            <Note theme={theme}>
+              These figures cover every workspace on this host. 9router records provider, model, account and API key per
+              request, and every Paseo session shares one key, so no request can be tied back to a workspace.
+            </Note>
           </Card>
 
           <Card theme={theme}>

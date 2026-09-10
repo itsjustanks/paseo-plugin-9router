@@ -9,7 +9,7 @@ const staging = mkdtempSync(join(tmpdir(), "router-routing-"));
 try {
   const source = readFileSync(new URL("../apps/paseo/shared/routing-logic.ts", import.meta.url), "utf8");
   writeFileSync(join(staging, "routing.mjs"), ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText);
-  const { parseRoutingEnvelope, upgradeRoutingValues, routedSessionKind, isRateLimitError, poolForAgent, agentRouting, workspaceRoutingSummary, connectionsToReset, shouldRetry, stuckConnections, poolVerdict, pillDecision, ROUTING_DEFAULTS, ROUTING_DEFAULTS_OFF, ROUTING_SETTINGS_VERSION, STUCK_BACKOFF_LEVEL } = await import(join(staging, "routing.mjs"));
+  const { parseRoutingEnvelope, upgradeRoutingValues, routedSessionKind, isRateLimitError, poolForAgent, agentRouting, connectionsToReset, shouldRetry, stuckConnections, poolVerdict, pillDecision, ROUTING_DEFAULTS, ROUTING_DEFAULTS_OFF, ROUTING_SETTINGS_VERSION, STUCK_BACKOFF_LEVEL } = await import(join(staging, "routing.mjs"));
 
   assert.deepEqual(parseRoutingEnvelope(null), ROUTING_DEFAULTS, "missing file means schema defaults");
   assert.equal(parseRoutingEnvelope(null).routeAgents, false, "routing is off until a user turns it on");
@@ -46,24 +46,13 @@ try {
   assert.equal(poolForAgent("ninerouter", null, "ninerouter"), null, "no model means no pool to reset");
   assert.equal(poolForAgent("gemini", "x", "ninerouter"), null);
 
-  // The workspace panel's per-agent verdict: only the provider is evidence.
+  // The agent panel's per-agent verdict: only the provider is evidence.
   assert.deepEqual(agentRouting("ninerouter", "cc/claude-opus-5", "ninerouter"), { routed: true, pool: "claude", verdict: "routed", label: "Via 9Router" });
   assert.deepEqual(agentRouting("ninerouter", "cx/gpt-6-astra", "ninerouter"), { routed: true, pool: "codex", verdict: "routed", label: "Via 9Router" });
   assert.deepEqual(agentRouting("ninerouter", null, "ninerouter"), { routed: true, pool: null, verdict: "routed", label: "Via 9Router" }, "routed without a model is still routed");
   assert.deepEqual(agentRouting("claude", "claude-opus-5", "ninerouter"), { routed: false, pool: "claude", verdict: "direct", label: "Direct provider" });
   assert.deepEqual(agentRouting("codex", "gpt-6-astra", "ninerouter"), { routed: false, pool: "codex", verdict: "direct", label: "Direct · never routed" }, "codex is named as never routed");
   assert.deepEqual(agentRouting("gemini", "x", "ninerouter"), { routed: false, pool: null, verdict: "unserved", label: "Not served by 9router" });
-
-  const workspaceAgents = [
-    { provider: "ninerouter", model: "cc/claude-opus-5" },
-    { provider: "claude", model: "claude-sonnet-5" },
-    { provider: "codex", model: "gpt-6-astra" },
-    { provider: "gemini", model: "g" },
-    { provider: "ninerouter", model: "cx/gpt-5.6-sol" },
-  ];
-  assert.deepEqual(workspaceRoutingSummary(workspaceAgents, "ninerouter"), { agents: 5, routed: 2, direct: 2, unserved: 1, pools: ["claude", "codex"] });
-  assert.deepEqual(workspaceRoutingSummary([{ provider: "codex", model: "gpt-6-astra" }], "ninerouter").pools, ["codex"], "pools list only what this workspace draws from");
-  assert.deepEqual(workspaceRoutingSummary([], "ninerouter"), { agents: 0, routed: 0, direct: 0, unserved: 0, pools: [] });
 
   const connections = [
     { id: "a", provider: "claude", isActive: true, backoffLevel: 2 },
@@ -110,7 +99,7 @@ try {
   assert.equal(pillDecision({ ...base, verdict: null }).show, false, "an empty cache says nothing");
   assert.equal(pillDecision({ ...base, verdict: poolVerdict(pool, "claude"), settings: { routeAgents: true, showComposerPill: false } }).show, false, "the setting hides the pill");
   assert.equal(pillDecision({ ...base, verdict: poolVerdict(pool, "claude"), pool: null }).show, false, "providers 9router does not serve get no pill");
-  console.log("✓ Routing settings parsing and v1→v2 upgrade, provider gating, rate-limit matching, pool mapping, per-agent routing verdicts, workspace summaries, retry caps, stuck backoff, and pill decisions passed");
+  console.log("✓ Routing settings parsing and v1→v2 upgrade, provider gating, rate-limit matching, pool mapping, per-agent routing verdicts, retry caps, stuck backoff, and pill decisions passed");
 } finally {
   rmSync(staging, { recursive: true, force: true });
 }

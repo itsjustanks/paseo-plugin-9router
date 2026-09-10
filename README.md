@@ -142,27 +142,23 @@ account": **Reset backoff automatically** clears backoff on every account that c
 model (on by default), **Retry the turn after a reset** sends "Retry the last request." to the
 agent, and **Automatic retries per agent** caps how often that can happen.
 
-Each agent also has a **9Router** tab (workspace tabs and the explorer, or "Show 9Router for this
-agent" in the Command Center) showing its provider and model, whether it is routed, the accounts
-that can serve it with their backoff level, and a Reset backoff button per account.
+### Agent panel
 
-### Workspace panel
+Each agent has a **9Router** tab (workspace tabs and the explorer once an agent is open, or "Show
+9Router for this agent" in the Command Center) showing its provider and model, whether it runs
+**via 9Router** or talks to its provider **directly**, the pool it draws from, and that pool's
+accounts with their backoff level, a Reset backoff button per account and a reset-all button. A
+Codex agent is always direct; Codex sessions are never routed.
 
-Every workspace has a **9Router** panel too, listed under Projects and in the explorer (or "Show
-9Router routing for this workspace" in the Command Center). It leads with what is genuinely this
-workspace's: the agents open here, each with its provider and model, whether it runs **via
-9Router** or talks to its provider **directly**, and the pool it draws from. Press an agent row to
-open that agent. A Codex agent is always direct; Codex sessions are never routed.
-
-Below that, clearly marked **whole host**, come the things one router shares across every
-workspace: last-day usage (requests, tokens, API-equivalent cost), the stuck accounts by name
-with their last error, and every pool's accounts with Reset backoff per account and a reset-all
-button. Pools this workspace uses are listed first. Resetting backoff affects every workspace.
+There is no workspace-level panel. Accounts, quotas and backoff belong to the host — one router
+serves every workspace — so a workspace-labelled view of them was misleading (0.13.0 to 0.14.2
+shipped one). The host-wide facts live on the main **9Router** surface instead: stuck accounts
+and Reset backoff under **Accounts → Health & holds**, last-day usage under **Usage & Health**.
 
 Usage cannot be split per workspace. 9router records provider, model, account and API key for
 each request (`usageHistory` columns `provider`, `model`, `connectionId`, `apiKey`), and every
-Paseo session shares one key, so nothing ties a request to a workspace. The panel says so rather
-than dressing a host-wide number up as a workspace one.
+Paseo session shares one key, so nothing ties a request to a workspace. The Usage tab says so
+rather than dressing a host-wide number up as a workspace one.
 
 ### Automatic health checks
 
@@ -171,7 +167,8 @@ Account health used to be read only while a 9Router page was open or when a turn
 each account's backoff, caches the answer, and logs once when an active account is **stuck**,
 meaning 9router has backed it off past level 5 and stopped retrying it while still counting it
 as a serving slot. That is the state that leaves one account quietly carrying the whole pool
-while the others look active. Panels and pills read the cache, so many agents cost one request.
+while the others look active. Pills read the cache, so many agents cost one request; stuck
+accounts are named under **Accounts → Health & holds**, where Reset backoff puts them back to work.
 
 The **Account health** section of the Routing settings screen controls this: **Check account
 health in the background** (on by default), **Check interval** (2 minutes to 2 hours, default
@@ -207,8 +204,8 @@ are optional controls, not prerequisites for native account/model views.
 | Direct Codex is shown | This is a valid configuration; choose 9Router for a routed session |
 | Version-gated Claude request fails | Review Maintenance and the reported installed/advertised client versions |
 | New UI does not appear | Update/reload `agent-link-9router` and reopen its sidebar entry |
-| One account serves everything | Open the workspace 9Router panel; accounts marked **stuck** need Reset backoff |
-| Plugin missing under Projects | Update to 0.13.0 or newer; the workspace panel is what Projects lists |
+| One account serves everything | Open **Accounts → Health & holds** (or the agent's 9Router tab); accounts marked **stuck** need Reset backoff |
+| Plugin missing under Projects | Expected since 0.15.0: the plugin contributes an agent panel, not a workspace panel. Open an agent to see its 9Router tab |
 | Agent shows "Direct provider" while routing is on | Expected for `claude` agents: the env injection is not visible to the client. Pick the **9Router** provider for a verdict of "Via 9Router" |
 
 The router's **Update and restart…** action replaces its installed package and restarts the server.
@@ -228,9 +225,9 @@ npm run preview:ui
 ```
 
 The preview uses fictional RPC fixtures and never connects to a daemon or provider. `?light`,
-`?empty`, `?offline`, and `?error` exercise theme and recovery states; `?workspace`, `?agent[=id]`
-and `?pill` mount the workspace panel, agent panel and composer pill instead of the surface, each
-rendered once with no data and again when it arrives (`?late=<ms>`). `npm test` includes
+`?empty`, `?offline`, and `?error` exercise theme and recovery states; `?agent[=id]` and `?pill`
+mount the agent panel and composer pill instead of the surface, each rendered once with no data
+and again when it arrives (`?late=<ms>`). `npm test` includes
 `tests/hook-order.mjs`, which mounts every contributed component through that transition under
 React's development build and fails on any hook-order complaint. See the
 [screenshot guide](docs/screenshots/README.md) before updating public images.
@@ -239,7 +236,7 @@ Requires Paseo 0.8 or newer. Since 0.11.0 the plugin uses the 0.8 runtime layout
 `index.client.tsx` and `index.server.ts` entries with code under `client/`, `server/`, and
 `shared/`, and `requirements.paseo` set to `>=0.8.0`. Paseo 0.7 hosts should stay on 0.9.0.
 Tests cover pure routing/usage logic, the routing settings (including the v1 to v2 upgrade,
-stuck-backoff detection, per-agent routing verdicts, workspace summaries and pill decisions),
+stuck-backoff detection, per-agent routing verdicts and pill decisions),
 Astra registration and provider isolation, and complete catalog pagination on Node 20+.
 
 The SDK has no server-side settings read in `@getpaseo/plugin` 0.8.0-beta.1, so the hooks and

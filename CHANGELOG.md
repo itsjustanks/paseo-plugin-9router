@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.15.0 — 2026-09-10
+
+### The workspace panel is gone; the agent panel stays
+- The **9Router** workspace panel (added in 0.13.0, reworked in 0.14.0) is removed, along with its Command Center item "Show 9Router routing for this workspace". Accounts, quotas, backoff and spend are host-wide — one 9router serves every workspace — so everything substantive on that panel was a host-wide view wearing a workspace label, and 0.14.0 already had to mark most of it "whole host". Per-workspace usage attribution is impossible with 9router's schema (`usageHistory` records provider, model, account and API key; every Paseo session shares one key), so the label could never become true.
+- The agent panel is genuinely per-agent — provider, model, **Via 9Router** / **Direct provider** verdict, the pool it draws from, that pool's accounts with Reset backoff — and is unchanged, still listed in workspace tabs and the explorer once an agent is open.
+
+### What moved
+- **Stuck accounts** now have a card at the top of **Accounts → Health & holds** on the main surface: each stuck account by name with its backoff level and last error, and the note that resetting affects every workspace. Rows in the Account health list below read **stuck · backoff N** in red instead of a plain **active**. Reset backoff per account was already there; the agent panel's per-account Reset backoff and reset-all are unchanged.
+- **Last-day usage** (requests, tokens in/out, API-equivalent cost) now has a card under **Usage & Health**, ahead of the since-install totals, with the same note that the figures cover the whole host.
+- The per-agent routing rows for a whole workspace are not moved anywhere: each agent's own panel shows its verdict, and nothing else on the workspace panel was about the workspace.
+
+### Notes
+- Deleted `client/workspace-panel.tsx`, `AgentRoutingRow`, `useHostSpend` and `checkedAgo` in `client/accounts.tsx`, and `workspaceRoutingSummary` in `shared/routing-logic.ts` (with its cases in `tests/routing-logic.mjs`); every other pure helper and its tests remain. `client/surface.tsx` now reads `stuckConnections` from `shared/routing-logic.ts`, so the surface and the agent panel judge "stuck" by the same threshold.
+- `tests/hook-order.mjs` and the preview harness (`tests/ui/`) drop the workspace-panel mount and still cover the surface, the agent panel (known and unknown agent), the pill and the settings screen across the data-absent → data-present transition.
+
 ## 0.14.2 — 2026-09-10
 
 ### The surface crashed on first paint: "Plugin failed: Minified React error #310"

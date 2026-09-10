@@ -2,7 +2,7 @@
   "name": "agent-link",
   "private": true,
   "type": "module",
-  "version": "0.14.2",
+  "version": "0.15.0",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "preview:ui": "vite --config tests/ui/vite.config.mts",

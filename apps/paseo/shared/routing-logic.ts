@@ -158,31 +158,6 @@ export function agentRouting(provider: string, model: string | null, routerProvi
   return { routed: false, pool, verdict: "direct", label: pool === "codex" ? "Direct · never routed" : "Direct provider" };
 }
 
-export type WorkspaceRoutingSummary = {
-  agents: number;
-  routed: number;
-  direct: number;
-  unserved: number;
-  /** Pools this workspace's agents draw from, Claude first; empty when no agent maps to one. */
-  pools: Array<"claude" | "codex">;
-};
-
-/** What a workspace's agents add up to, so the panel can lead with the pools that matter here. */
-export function workspaceRoutingSummary(
-  agents: ReadonlyArray<{ provider: string; model: string | null }>,
-  routerProviderId: string,
-): WorkspaceRoutingSummary {
-  const summary: WorkspaceRoutingSummary = { agents: agents.length, routed: 0, direct: 0, unserved: 0, pools: [] };
-  const pools = new Set<"claude" | "codex">();
-  for (const agent of agents) {
-    const routing = agentRouting(agent.provider, agent.model, routerProviderId);
-    summary[routing.verdict] += 1;
-    if (routing.pool) pools.add(routing.pool);
-  }
-  summary.pools = (["claude", "codex"] as const).filter((pool) => pools.has(pool));
-  return summary;
-}
-
 /** Accounts worth resetting: the pool's active connections currently in backoff. */
 export function connectionsToReset<T extends { provider: string; isActive: boolean; backoffLevel: number }>(
   connections: readonly T[],

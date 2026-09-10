@@ -8,7 +8,6 @@ import React from "react";
 import { act, create } from "react-test-renderer";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AgentLinkSurface } from "../../client/surface";
-import { RouterWorkspacePanel } from "../../client/workspace-panel";
 import { RouterAgentPanel } from "../../client/agent-panel";
 import { RoutingPill } from "../../client/pill";
 import { RoutingSettingsScreen } from "../../client/settings";
@@ -24,7 +23,6 @@ const navigation = { openAgent() {}, openWorkspace() {} };
 
 export const mounts: Record<string, () => React.ReactElement> = {
   surface: () => <AgentLinkSurface {...base} navigation={navigation} />,
-  "workspace panel": () => <RouterWorkspacePanel {...base} context="workspace" workspaceId="ws-1" navigation={navigation} />,
   "agent panel": () => <RouterAgentPanel {...base} context="agent" workspaceId="ws-1" agentId="agent-1" navigation={navigation} />,
   "agent panel (unknown agent)": () => <RouterAgentPanel {...base} context="agent" workspaceId="ws-1" agentId="missing" navigation={navigation} />,
   pill: () => <RoutingPill {...base} workspaceId="ws-1" agentId="agent-1" />,
