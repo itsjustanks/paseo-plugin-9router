@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.14.0 — 2026-09-10
+
+### Workspace panel is about the workspace
+- The **9Router** workspace panel now leads with this workspace's agents: each one's title, provider and model, a **Via 9Router** / **Direct provider** / **Direct · never routed** (Codex) verdict, and the pool it draws from. Rows open the agent where the host supports navigation. The header counts routed versus direct agents and names the pools in use; a stuck account in one of those pools is called out at the top.
+- Everything one router shares across workspaces is kept but demoted and marked **whole host**: last-day usage (requests, tokens in/out, API-equivalent cost via the existing `routerSpend` RPC), stuck accounts, and both pools' account lists with Reset backoff per account and reset-all. Pools this workspace uses come first; pools it does not use say so.
+- Usage is shown host-wide on purpose. 9router's `usageHistory` rows carry `provider`, `model`, `connectionId` and `apiKey` only (and `requestDetails` strips inbound headers); every Paseo session shares one API key, so no request can be attributed to a workspace. The panel states this instead of inventing a per-workspace number.
+
+### Notes
+- New pure logic `agentRouting` and `workspaceRoutingSummary` in `shared/routing-logic.ts`, covered by `tests/routing-logic.mjs`. The agent panel now uses the same verdict as the workspace panel through `RoutingChip` / `routingFor` in `client/accounts.tsx`.
+- The workspace panel lists agents through `usePaseo().agents.list({ scope: "active" })` and keeps them current from the same `agents.subscribe` stream the composer pill uses.
+- A `claude` agent reads as direct even when per-agent routing injected 9router's environment into its session; that injection is server-side and the client cannot see it. The panel's note says so when routing is on.
+
 ## 0.13.0 — 2026-09-09
 
 ### Workspace panel

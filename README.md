@@ -147,10 +147,20 @@ that can serve it with their backoff level, and a Reset backoff button per accou
 ### Workspace panel
 
 Every workspace has a **9Router** panel too, listed under Projects and in the explorer (or "Show
-9Router routing for this workspace" in the Command Center). It shows whether per-agent routing
-is on, how many accounts are ready, resting and stuck, the stuck accounts by name with their last
-error, and every pool's accounts with Reset backoff per account and a reset-all button. This is
-the panel to open when an agent's tab is not; it needs no agent.
+9Router routing for this workspace" in the Command Center). It leads with what is genuinely this
+workspace's: the agents open here, each with its provider and model, whether it runs **via
+9Router** or talks to its provider **directly**, and the pool it draws from. Press an agent row to
+open that agent. A Codex agent is always direct; Codex sessions are never routed.
+
+Below that, clearly marked **whole host**, come the things one router shares across every
+workspace: last-day usage (requests, tokens, API-equivalent cost), the stuck accounts by name
+with their last error, and every pool's accounts with Reset backoff per account and a reset-all
+button. Pools this workspace uses are listed first. Resetting backoff affects every workspace.
+
+Usage cannot be split per workspace. 9router records provider, model, account and API key for
+each request (`usageHistory` columns `provider`, `model`, `connectionId`, `apiKey`), and every
+Paseo session shares one key, so nothing ties a request to a workspace. The panel says so rather
+than dressing a host-wide number up as a workspace one.
 
 ### Automatic health checks
 
@@ -196,6 +206,7 @@ are optional controls, not prerequisites for native account/model views.
 | New UI does not appear | Update/reload `agent-link-9router` and reopen its sidebar entry |
 | One account serves everything | Open the workspace 9Router panel; accounts marked **stuck** need Reset backoff |
 | Plugin missing under Projects | Update to 0.13.0 or newer; the workspace panel is what Projects lists |
+| Agent shows "Direct provider" while routing is on | Expected for `claude` agents: the env injection is not visible to the client. Pick the **9Router** provider for a verdict of "Via 9Router" |
 
 The router's **Update and restart…** action replaces its installed package and restarts the server.
 Wait for routed work to finish and review compiled-file customizations first. Plugin updates
@@ -221,8 +232,8 @@ Requires Paseo 0.8 or newer. Since 0.11.0 the plugin uses the 0.8 runtime layout
 `index.client.tsx` and `index.server.ts` entries with code under `client/`, `server/`, and
 `shared/`, and `requirements.paseo` set to `>=0.8.0`. Paseo 0.7 hosts should stay on 0.9.0.
 Tests cover pure routing/usage logic, the routing settings (including the v1 to v2 upgrade,
-stuck-backoff detection and pill decisions), Astra registration and provider isolation, and
-complete catalog pagination on Node 20+.
+stuck-backoff detection, per-agent routing verdicts, workspace summaries and pill decisions),
+Astra registration and provider isolation, and complete catalog pagination on Node 20+.
 
 The SDK has no server-side settings read in `@getpaseo/plugin` 0.8.0-beta.1, so the hooks and
 the health poller read the daemon's persisted document at
