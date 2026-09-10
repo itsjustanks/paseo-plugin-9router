@@ -1,10 +1,9 @@
 import React from "react";
 import { ScrollView, View } from "react-native";
 import { useAgent, type PluginAgentPanelProps } from "@getpaseo/plugin/client";
-import { poolForAgent } from "../shared/routing-logic";
 import { providerLabel } from "../shared/router-logic";
-import { Card, Chip, Note, Row, Step } from "./ui";
-import { POOL_LABEL, PoolAccounts, ROUTER_PROVIDER_ID, useClearHold, useConnectionHealth, useHolds } from "./accounts";
+import { Card, Note, Row, Step } from "./ui";
+import { POOL_LABEL, PoolAccounts, RoutingChip, routingFor, useClearHold, useConnectionHealth, useHolds } from "./accounts";
 
 export function RouterAgentPanel({ theme, layout, agentId }: PluginAgentPanelProps) {
   const agent = useAgent(agentId, ({ provider, model, status }) => ({ provider, model, status }));
@@ -22,8 +21,8 @@ export function RouterAgentPanel({ theme, layout, agentId }: PluginAgentPanelPro
     );
   }
 
-  const routed = agent.provider === ROUTER_PROVIDER_ID;
-  const pool = poolForAgent(agent.provider, agent.model, ROUTER_PROVIDER_ID);
+  const routing = routingFor(agent);
+  const { routed, pool } = routing;
   const holdsForModel = (holds.data?.holds ?? []).filter((hold) => agent.model !== null && hold.model === agent.model);
 
   return (
@@ -31,7 +30,7 @@ export function RouterAgentPanel({ theme, layout, agentId }: PluginAgentPanelPro
       <Card theme={theme}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <Step theme={theme} index={0} title="This agent" />
-          <Chip theme={theme} label={routed ? "Via 9Router" : "Direct provider"} tone={routed ? "success" : "neutral"} />
+          <RoutingChip theme={theme} routing={routing} />
         </View>
         <Row theme={theme} label="Provider" value={routed ? "9Router" : providerLabel(agent.provider)} />
         <Row theme={theme} label="Model" value={agent.model ?? "not set"} />

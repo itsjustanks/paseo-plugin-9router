@@ -1,10 +1,11 @@
 import React from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useRpc } from "@getpaseo/plugin/client";
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { routerClearHold, routerConnectionHealth, routerHolds, routerRoutingHealth, type ConnectionHealth } from "../shared/contracts";
-import { STUCK_BACKOFF_LEVEL } from "../shared/routing-logic";
+import { routerClearHold, routerConnectionHealth, routerHolds, routerRoutingHealth, routerSpend, type ConnectionHealth } from "../shared/contracts";
+import { agentRouting, STUCK_BACKOFF_LEVEL, type AgentRouting } from "../shared/routing-logic";
+import { providerLabel } from "../shared/router-logic";
 import { Button, Chip, Note, Step } from "./ui";
 
 /** Paseo's provider id for routed sessions; mirrors PROVIDER_ID on the server. */
@@ -16,6 +17,80 @@ export type Pool = keyof typeof POOL_LABEL;
 export const HEALTH_QUERY_KEY = ["agent-link-9router", "connection-health"] as const;
 export const HOLDS_QUERY_KEY = ["agent-link-9router", "holds"] as const;
 export const ROUTING_HEALTH_QUERY_KEY = ["agent-link-9router", "routing-health"] as const;
+export const HOST_SPEND_QUERY_KEY = ["agent-link-9router", "host-spend"] as const;
+
+/** Days of host-wide spend the workspace panel shows; 9router has no per-workspace view of it. */
+export const HOST_SPEND_DAYS = 1;
+
+/**
+ * 9router's spend over the last day for the whole host. It is host-wide on
+ * purpose: `usageHistory` rows carry provider, model, connectionId and the API
+ * key that made the request, and every Paseo session shares one key, so nothing
+ * in the record points back at a workspace. Callers must label it as such.
+ */
+export function useHostSpend() {
+  const callSpend = useRpc(routerSpend);
+  return useQuery({ queryKey: HOST_SPEND_QUERY_KEY, queryFn: () => callSpend({ days: HOST_SPEND_DAYS }), refetchInterval: 60_000 });
+}
+
+/** Minutes since an ISO timestamp, in the words the panels use. */
+export function checkedAgo(iso: string | null): string {
+  if (!iso) return "not yet checked";
+  const minutes = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
+  return minutes === 0 ? "checked just now" : `checked ${minutes} min ago`;
+}
+
+/** Tokens and requests as short figures; the panel has no room for nine digits. */
+export function compactNumber(value: number): string {
+  if (value >= 1e9) return `${(value / 1e9).toFixed(1)}B`;
+  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
+  if (value >= 1e3) return `${(value / 1e3).toFixed(1)}k`;
+  return String(Math.round(value));
+}
+
+/** The routed/direct verdict for one agent, judged the same way on every surface. */
+export function routingFor(agent: { provider: string; model: string | null }): AgentRouting {
+  return agentRouting(agent.provider, agent.model, ROUTER_PROVIDER_ID);
+}
+
+export function RoutingChip({ theme, routing }: { theme: PluginTheme; routing: AgentRouting }) {
+  return <Chip theme={theme} label={routing.label} tone={routing.verdict === "routed" ? "success" : "neutral"} />;
+}
+
+/** One agent as the workspace panel lists it: title, provider/model, and where its requests go. */
+export function AgentRoutingRow({
+  theme,
+  agent,
+  onPress,
+}: {
+  theme: PluginTheme;
+  agent: { id: string; title: string | null; provider: string; model: string | null; status: string };
+  onPress?: () => void;
+}) {
+  const routing = routingFor(agent);
+  const where = routing.verdict === "routed" ? "9Router" : providerLabel(agent.provider);
+  const body = (
+    <View style={{ gap: 4, padding: 8, borderRadius: 8, backgroundColor: theme.colors.surface2 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Text numberOfLines={1} style={{ color: theme.colors.foreground, fontSize: 12, fontWeight: "600", flex: 1 }}>
+          {agent.title || agent.id.slice(0, 8)}
+        </Text>
+        <RoutingChip theme={theme} routing={routing} />
+      </View>
+      <Text numberOfLines={1} style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>
+        {where} · {agent.model ?? "model not set"}
+        {routing.pool ? ` · ${POOL_LABEL[routing.pool]} pool` : ""}
+        {agent.status === "running" ? " · running" : agent.status === "error" ? " · error" : ""}
+      </Text>
+    </View>
+  );
+  if (!onPress) return body;
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`Open agent ${agent.title || agent.id.slice(0, 8)}`} onPress={onPress}>
+      {body}
+    </Pressable>
+  );
+}
 
 /** Live account health, shared by the agent panel, the workspace panel and the pill. */
 export function useConnectionHealth() {
