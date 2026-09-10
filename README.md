@@ -144,6 +144,35 @@ Each agent also has a **9Router** tab (workspace tabs and the explorer, or "Show
 agent" in the Command Center) showing its provider and model, whether it is routed, the accounts
 that can serve it with their backoff level, and a Reset backoff button per account.
 
+### Workspace panel
+
+Every workspace has a **9Router** panel too, listed under Projects and in the explorer (or "Show
+9Router routing for this workspace" in the Command Center). It shows whether per-agent routing
+is on, how many accounts are ready, resting and stuck, the stuck accounts by name with their last
+error, and every pool's accounts with Reset backoff per account and a reset-all button. This is
+the panel to open when an agent's tab is not; it needs no agent.
+
+### Automatic health checks
+
+Account health used to be read only while a 9Router page was open or when a turn failed. Since
+0.13.0 the plugin checks it in the background: every 10 minutes by default it asks 9router for
+each account's backoff, caches the answer, and logs once when an active account is **stuck**,
+meaning 9router has backed it off past level 5 and stopped retrying it while still counting it
+as a serving slot. That is the state that leaves one account quietly carrying the whole pool
+while the others look active. Panels and pills read the cache, so many agents cost one request.
+
+The **Account health** section of the Routing settings screen controls this: **Check account
+health in the background** (on by default), **Check interval** (2 minutes to 2 hours, default
+10 minutes), and **Show a 9Router pill in agent composers** (on by default).
+
+### Composer pill
+
+When there is something to act on, a **9Router** pill appears above an agent's message box:
+accounts resting or stuck in that agent's pool, no accounts ready, the router offline while
+routing is on, or an agent talking to its provider directly while routing is on ("Not routed").
+Healthy agents get no pill, so the composer stays quiet when everything works. Pressing it opens
+the 9Router accounts page, where backoff is reset and accounts are added.
+
 ## Using another host
 
 The selected Paseo host owns this plugin's requests and settings. Its `localhost` belongs to that
@@ -165,6 +194,8 @@ are optional controls, not prerequisites for native account/model views.
 | Direct Codex is shown | This is a valid configuration; choose 9Router for a routed session |
 | Version-gated Claude request fails | Review Maintenance and the reported installed/advertised client versions |
 | New UI does not appear | Update/reload `agent-link-9router` and reopen its sidebar entry |
+| One account serves everything | Open the workspace 9Router panel; accounts marked **stuck** need Reset backoff |
+| Plugin missing under Projects | Update to 0.13.0 or newer; the workspace panel is what Projects lists |
 
 The router's **Update and restart…** action replaces its installed package and restarts the server.
 Wait for routed work to finish and review compiled-file customizations first. Plugin updates
@@ -189,8 +220,15 @@ The preview uses fictional RPC fixtures and never connects to a daemon or provid
 Requires Paseo 0.8 or newer. Since 0.11.0 the plugin uses the 0.8 runtime layout:
 `index.client.tsx` and `index.server.ts` entries with code under `client/`, `server/`, and
 `shared/`, and `requirements.paseo` set to `>=0.8.0`. Paseo 0.7 hosts should stay on 0.9.0.
-Tests cover pure routing/usage logic, Astra registration and provider isolation, and complete
-catalog pagination on Node 20+.
+Tests cover pure routing/usage logic, the routing settings (including the v1 to v2 upgrade,
+stuck-backoff detection and pill decisions), Astra registration and provider isolation, and
+complete catalog pagination on Node 20+.
+
+The SDK has no server-side settings read in `@getpaseo/plugin` 0.8.0-beta.1, so the hooks and
+the health poller read the daemon's persisted document at
+`$PASEO_HOME/plugin-settings/agent-link-9router/routing.json`. A missing file means defaults; a
+document from an older known schema version is upgraded in place; an unreadable or newer one
+means everything off.
 
 The optional `agent-link` shell CLI is included at the repository root. It retains its existing
 terminal workflows; this release focuses on the Paseo plugin.
