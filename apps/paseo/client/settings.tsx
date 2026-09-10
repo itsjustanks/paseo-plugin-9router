@@ -11,6 +11,12 @@ const RETRY_OPTIONS = [0, 1, 2, 3, 4, 5].map((count) => ({
   value: String(count),
 }));
 
+/** Within the schema's 2..120 bounds; the default of 10 keeps the router idle between checks. */
+const INTERVAL_OPTIONS = [2, 5, 10, 15, 30, 60, 120].map((minutes) => ({
+  label: minutes < 60 ? `Every ${minutes} minutes` : minutes === 60 ? "Every hour" : `Every ${minutes / 60} hours`,
+  value: String(minutes),
+}));
+
 function RoutingControls({ settings }: { settings: Ready }) {
   const values = settings.values;
   const update = useCallback(
@@ -55,6 +61,32 @@ function RoutingControls({ settings }: { settings: Ready }) {
             options={RETRY_OPTIONS}
             disabled={settings.saving || !values.retryOnRateLimit}
             onValueChange={(next) => update({ maxRetriesPerAgent: Number(next) })}
+          />
+        </SettingsCard>
+      </SettingsSection>
+      <SettingsSection title="Account health">
+        <SettingsCard>
+          <SettingsSwitch
+            label="Check account health in the background"
+            hint="The plugin asks 9router for account backoff on a timer and caches the answer, so composer pills and panels read the cache instead of each hitting the router. Accounts stuck in backoff are logged and shown as stuck."
+            value={values.healthChecks}
+            disabled={settings.saving}
+            onValueChange={(healthChecks) => update({ healthChecks })}
+          />
+          <SettingsSelect
+            label="Check interval"
+            hint="How often the background check runs. Opening a 9Router panel or surface still refreshes on demand."
+            value={String(values.healthIntervalMinutes)}
+            options={INTERVAL_OPTIONS}
+            disabled={settings.saving || !values.healthChecks}
+            onValueChange={(next) => update({ healthIntervalMinutes: Number(next) })}
+          />
+          <SettingsSwitch
+            label="Show a 9Router pill in agent composers"
+            hint="A small chip above the message box when something needs attention: accounts resting or stuck, no accounts ready, the router offline, or an agent bypassing an enabled pool. Healthy agents get no pill. Pressing it opens the 9Router accounts page."
+            value={values.showComposerPill}
+            disabled={settings.saving}
+            onValueChange={(showComposerPill) => update({ showComposerPill })}
           />
         </SettingsCard>
       </SettingsSection>
