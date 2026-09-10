@@ -140,7 +140,7 @@ export function PoolAccounts({
             theme={theme}
             label={`Reset all ${resting.length} ${POOL_LABEL[pool]} accounts`}
             tone="primary"
-            busy={clear.isPending && clear.variables?.connectionId === undefined}
+            busy={clear.isPending}
             disabled={clear.isPending}
             onPress={() => {
               for (const connection of resting) clear.mutate({ provider: pool, model: model ?? "", connectionId: connection.id });
