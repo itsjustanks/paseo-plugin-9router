@@ -639,6 +639,8 @@ export const ConnectionHealthSchema = z.object({
   modelLocks: z.array(z.string()),
 });
 
+export type ConnectionHealth = z.infer<typeof ConnectionHealthSchema>;
+
 export const routerConnectionHealth = defineRpc({
   name: "agent-link-9router.router.connection-health",
   input: z.object({}),
