@@ -1,5 +1,6 @@
 import { defineRpc } from "@getpaseo/plugin";
 import { z } from "zod";
+import { MetricsSchema, SnapshotSchema } from "./usage-schema";
 
 // Every RPC lives under `agent-link-9router.router.*`. Secrets never cross this
 // boundary: the API key is reported as `present` + `last4`, the password never.
@@ -1062,4 +1063,50 @@ export const routerHealth = defineRpc({
     headline: z.string(),
     findings: z.array(HealthFindingSchema),
   }),
+});
+
+/**
+ * Usage read from local Claude Code and Codex transcripts, not from 9router.
+ *
+ * 9router's `usageHistory` carries provider, model, account and API key; every
+ * Paseo session shares one key, so the router can never attribute a request
+ * to a session, agent or workspace. Transcripts can, and they also cover the
+ * terminal sessions that bypass the router. The price is that their cost
+ * column is an estimate at base API rates, never a bill — every consumer of
+ * this RPC labels it "transcript estimate". Adapted from session-usage
+ * (panrafal, MIT; see THIRD-PARTY-NOTICES.md).
+ */
+export const TranscriptUsageSchema = SnapshotSchema.extend({
+  /** Paseo agents whose transcript is gone or never existed; they carry no numbers and are not listed. */
+  missingSessions: z.number().int().nonnegative(),
+});
+export type TranscriptUsage = z.infer<typeof TranscriptUsageSchema>;
+
+export const routerTranscriptUsage = defineRpc({
+  name: "agent-link-9router.router.transcript-usage",
+  input: z.object({ refresh: z.boolean().default(false) }),
+  output: TranscriptUsageSchema,
+});
+
+/** One agent's own tokens and estimated cost, with the subagents it spawned folded in. */
+export const AgentUsageSchema = z.object({
+  found: z.boolean(),
+  scanning: z.boolean(),
+  checkedAt: z.string().nullable(),
+  provider: z.enum(["claude", "codex"]).nullable(),
+  coverage: z.enum(["available", "partial", "missing"]).nullable(),
+  warnings: z.array(z.string()),
+  startedAt: z.string().nullable(),
+  endedAt: z.string().nullable(),
+  subagents: z.number().int().nonnegative(),
+  metrics: MetricsSchema,
+  byModel: z.array(z.object({ model: z.string(), metrics: MetricsSchema })),
+  byDay: z.array(z.object({ day: z.string(), metrics: MetricsSchema })),
+});
+export type AgentUsage = z.infer<typeof AgentUsageSchema>;
+
+export const routerAgentUsage = defineRpc({
+  name: "agent-link-9router.router.agent-usage",
+  input: z.object({ agentId: z.string() }),
+  output: AgentUsageSchema,
 });

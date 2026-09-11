@@ -4,6 +4,7 @@ import { useAgent, type PluginAgentPanelProps } from "@getpaseo/plugin/client";
 import { providerLabel } from "../shared/router-logic";
 import { Card, Note, Row, Step } from "./ui";
 import { POOL_LABEL, PoolAccounts, RoutingChip, routingFor, useClearHold, useConnectionHealth, useHolds } from "./accounts";
+import { AgentUsageCard } from "./usage";
 
 export function RouterAgentPanel({ theme, layout, agentId }: PluginAgentPanelProps) {
   const agent = useAgent(agentId, ({ provider, model, status }) => ({ provider, model, status }));
@@ -43,6 +44,10 @@ export function RouterAgentPanel({ theme, layout, agentId }: PluginAgentPanelPro
               : "This provider is not served by 9router."}
         </Note>
       </Card>
+
+      {/* Per-agent tokens and estimated cost from this agent's own transcript: the one
+          figure 9router cannot produce, since its usage rows carry no agent or session. */}
+      <AgentUsageCard theme={theme} agentId={agentId} provider={agent.provider} />
 
       {pool ? (
         <Card theme={theme}>

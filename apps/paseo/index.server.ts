@@ -3,6 +3,7 @@ import type { PluginServerContext } from "@getpaseo/plugin/server";
 import { routingSettings } from "./shared/settings";
 import { registerRoutingHooks } from "./server/hooks";
 import { handleRouterRoutingHealth, startRoutingHealthPoller } from "./server/health";
+import { handleRouterAgentUsage, handleRouterTranscriptUsage, startTranscriptIndexPoller } from "./server/transcript-index";
 import {
   routerAliasRemove,
   routerAliasSet,
@@ -67,6 +68,8 @@ import {
   routerUsageChart,
   routerHealth,
   routerRoutingHealth,
+  routerTranscriptUsage,
+  routerAgentUsage,
 } from "./shared/contracts";
 import {
   handleRouterAliasRemove,
@@ -136,6 +139,8 @@ export default function contribute(server: PluginServerContext) {
   server.registerSettings(routingSettings);
   registerRoutingHooks(server);
   const stopHealthPoller = startRoutingHealthPoller();
+  // Transcript index: first scan 15s after startup so it never delays the plugin, then every 5 minutes incrementally.
+  const stopTranscriptPoller = startTranscriptIndexPoller();
   server.handle(routerStatus, handleRouterStatus);
   server.handle(routerStart, handleRouterStart);
   server.handle(routerSettingsSave, handleRouterSettingsSave);
@@ -199,7 +204,10 @@ export default function contribute(server: PluginServerContext) {
   server.handle(routerUsageChart, handleRouterUsageChart);
   server.handle(routerHealth, handleRouterHealth);
   server.handle(routerRoutingHealth, handleRouterRoutingHealth);
+  server.handle(routerTranscriptUsage, handleRouterTranscriptUsage);
+  server.handle(routerAgentUsage, handleRouterAgentUsage);
   return () => {
     stopHealthPoller();
+    stopTranscriptPoller();
   };
 }
