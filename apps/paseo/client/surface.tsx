@@ -1,6 +1,6 @@
 import { Modal } from "@getpaseo/plugin/client/react-native";
 import { Card, Step, Chip, Button, Field, Note, QuotaBar, SpendRow, Toggle, Row } from "./ui";
-import { Navigation, Overview, Guide, SectionHeading, type TabId } from "./navigation";
+import { Navigation, Overview, Guide, SectionHeading, resolveTab, type AnyTabId, type TabId } from "./navigation";
 import { ModelCatalog } from "./catalog";
 import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
 import type { PluginTheme } from "@getpaseo/plugin";
@@ -73,6 +73,7 @@ import {
 import { cliForModel, formatReset, groupModelIds, parseOauthPaste, providerLabel, quotaTone } from "../shared/router-logic";
 import { stuckConnections } from "../shared/routing-logic";
 import { HOST_SPEND_DAYS, compactNumber } from "./accounts";
+import { TranscriptUsageSection, USAGE_PERIODS, type UsagePeriod } from "./usage";
 
 type Theme = PluginTheme;
 
@@ -106,7 +107,7 @@ function formatAgo(iso: string | null): string {
   return `${formatDuration((Date.now() - then) / 1000)} ago`;
 }
 
-export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
+export function AgentLinkSurface({ theme, layout, host, navigation }: PluginSurfaceProps) {
   const queryClient = useQueryClient();
   const callStatus = useRpc(routerStatus);
   const callStart = useRpc(routerStart);
@@ -176,7 +177,11 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
   const data = status.data;
   const live = data?.running === true && data.auth.ok;
 
-  const [tab, setTab] = useState<TabId>("overview");
+  const [tab, setRawTab] = useState<TabId>("overview");
+  // 0.16.0 merged nine tabs into four pages. Every caller — in-page buttons,
+  // the walkthrough, Command Center items, restored deep links — may still name
+  // a merged id, so resolve it to the page that now renders it.
+  const setTab = React.useCallback((next: AnyTabId) => setRawTab(resolveTab(next)), []);
   const [confirmAction, setConfirmAction] = useState<{ title: string; detail: string; run: () => void } | null>(null);
   const [accountView, setAccountView] = useState<"balances" | "health" | "rotation">("balances");
   const [accountQuery, setAccountQuery] = useState("");
@@ -210,8 +215,11 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
   const availability = useQuery({
     queryKey: ["agent-link-9router", "model-availability"],
     queryFn: () => callAvailability({}),
-    enabled: live && ["models", "picker", "custom"].includes(tab),
-    refetchInterval: ["models", "picker", "custom"].includes(tab) ? 15_000 : false,
+    // Overview shows the pool verdict too, so this loads there as well: a
+    // rate-limited pool is the single most useful fact on the surface and
+    // should not need a trip to the Models page to discover.
+    enabled: live && (tab === "models" || tab === "overview"),
+    refetchInterval: tab === "models" || tab === "overview" ? 15_000 : false,
   });
   const order = useQuery({
     queryKey: ["agent-link-9router", "connection-order"],
@@ -229,8 +237,8 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
   const requestLogs = useQuery({
     queryKey: ["agent-link-9router", "request-logs"],
     queryFn: () => callRequestLogs({ limit: 25, errorsOnly: true }),
-    enabled: live && tab === "logs",
-    refetchInterval: tab === "logs" ? 8_000 : false,
+    enabled: live && tab === "usage",
+    refetchInterval: tab === "usage" ? 8_000 : false,
   });
   const thinking = useQuery({
     queryKey: ["agent-link-9router", "thinking-check"],
@@ -266,6 +274,16 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
     refetchInterval: 45_000,
   });
   const [chartDays, setChartDays] = useState(14);
+  // Sessions & agents tab: the router's figures for the same period the transcript
+  // section shows, so "router billed" and "transcript estimate" sit side by side.
+  const [usagePeriod, setUsagePeriod] = useState<UsagePeriod>("30d");
+  const usagePeriodDays = USAGE_PERIODS.find((option) => option.id === usagePeriod)?.days ?? null;
+  const periodSpend = useQuery({
+    queryKey: ["agent-link-9router", "spend", "period", usagePeriod],
+    queryFn: () => callSpend({ days: usagePeriodDays }),
+    enabled: live && tab === "usage",
+    refetchInterval: tab === "usage" ? 60_000 : false,
+  });
   const usageChart = useQuery({
     queryKey: ["agent-link-9router", "usage-chart", chartDays],
     queryFn: () => callUsageChart({ days: chartDays }),
@@ -313,33 +331,33 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
   const tuning = useQuery({
     queryKey: ["agent-link-9router", "tuning"],
     queryFn: () => callTuning({}),
-    enabled: live && tab === "tuning",
+    enabled: live && tab === "routing",
   });
   const logs = useQuery({
     queryKey: ["agent-link-9router", "logs"],
     queryFn: () => callLogs({ limit: 200 }),
-    enabled: live && tab === "logs",
-    refetchInterval: tab === "logs" ? 4_000 : false,
+    enabled: live && tab === "usage",
+    refetchInterval: tab === "usage" ? 4_000 : false,
   });
   const keys = useQuery({
     queryKey: ["agent-link-9router", "keys"],
     queryFn: () => callKeys({}),
-    enabled: live && tab === "keys",
+    enabled: live && tab === "routing",
   });
   const combos = useQuery({
     queryKey: ["agent-link-9router", "combos"],
     queryFn: () => callCombos({}),
-    enabled: live && (tab === "keys" || ["models", "picker", "custom"].includes(tab)),
+    enabled: live && (tab === "routing" || tab === "models"),
   });
   const powerUps = useQuery({
     queryKey: ["agent-link-9router", "power-ups"],
     queryFn: () => callPowerUps({}),
-    enabled: tab === "powerups",
+    enabled: tab === "setup",
   });
   const syncSelection = useQuery({
     queryKey: ["agent-link-9router", "sync-selection"],
     queryFn: () => callSyncSelection({}),
-    enabled: ["models", "picker", "custom"].includes(tab),
+    enabled: tab === "models",
   });
   const tunnel = useQuery({
     queryKey: ["agent-link-9router", "tunnel"],
@@ -610,7 +628,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
       <SectionHeading theme={theme} tab={tab} />
       {status.isError ? <Card theme={theme}><Step theme={theme} index={0} title="Could not read this router" /><Note theme={theme}>Check the selected Paseo host and saved router connection. Existing sessions keep their configuration.</Note><Button theme={theme} label="Retry connection" busy={status.isFetching} onPress={refresh} /></Card> : null}
       <Modal open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null); }} title={confirmAction?.title ?? "Confirm change"}><Modal.Content>{confirmAction ? <View style={{ backgroundColor: theme.colors.surface1, padding: 20, gap: 14 }}><Note theme={theme} tone="warning">{confirmAction.detail}</Note><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}><Button theme={theme} label="Confirm change" tone="danger" onPress={() => { const run = confirmAction.run; setConfirmAction(null); run(); }} /><Button theme={theme} label="Cancel change" onPress={() => setConfirmAction(null)} /></View></View> : null}</Modal.Content></Modal>
-      {tab === "overview" ? <Overview theme={theme} compact={layout.compact} data={data} onSelect={setTab} refresh={refresh} refreshing={status.isFetching} openDashboard={openDashboard} dashboardBusy={dashboardBusy} /> : null}
+      {tab === "overview" ? <Overview theme={theme} compact={layout.compact} data={data} onSelect={setTab} refresh={refresh} refreshing={status.isFetching} openDashboard={openDashboard} dashboardBusy={dashboardBusy} availability={availability.data?.models ?? null} availabilityChecking={availability.isFetching} onPing={() => void availability.refetch()} /> : null}
           {health9.data && ["overview", "usage"].includes(tab) ? (
             <Card theme={theme}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -652,7 +670,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
               ))}
             </Card>
           ) : null}
-      {tab === "guide" ? <Guide theme={theme} onSelect={setTab} openDashboard={openDashboard} /> : null}
+      {tab === "setup" ? <Guide theme={theme} onSelect={setTab} openDashboard={openDashboard} /> : null}
       {message ? (
         <Pressable accessibilityRole="button" accessibilityLabel="Dismiss notification" onPress={() => setMessage("")}>
           <View style={{ marginBottom: 12, padding: 10, borderRadius: 8, backgroundColor: theme.colors.surface2 }}>
@@ -1404,7 +1422,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
         {testResult ? <Card theme={theme}><Chip theme={theme} label={testResult.ok ? "Request succeeded" : "Request failed"} tone={testResult.ok ? "success" : "danger"} /><Note theme={theme}>{testResult.model}: {testResult.message}</Note></Card> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}><Button theme={theme} label="Sync picker selection" onPress={() => setTab("picker")} /><Button theme={theme} label="Add Astra or a custom model" onPress={() => setTab("custom")} /></View>
       </> : null}
-      {tab === "picker" ? <>
+      {tab === "models" ? <>
           <Card theme={theme}>
             <Step theme={theme} index={0} title="In Paseo's picker" hint={data?.paseo.modelsInSync ? "in sync" : undefined} />
             <Note theme={theme}>
@@ -1436,7 +1454,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
           </Card>
 
       </> : null}
-      {tab === "custom" ? <>
+      {tab === "models" ? <>
           <Card theme={theme}>
             <Step theme={theme} index={0} title="Expose a model" />
             <Note theme={theme}>
@@ -1524,7 +1542,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
       </> : null}
 
       {/* -------------------------------------------------------------- KEYS */}
-      {tab === "keys" ? (
+      {tab === "routing" ? (
         <>
           <Card theme={theme}>
             <Step theme={theme} index={0} title="API keys" hint={`${keys.data?.keys.length ?? 0}`} />
@@ -1652,7 +1670,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
       ) : null}
 
       {/* ------------------------------------------------------------ TUNING */}
-      {tab === "tuning" ? (
+      {tab === "routing" ? (
         <>
           <Card theme={theme}>
             <Step theme={theme} index={0} title="Token savers" />
@@ -1755,7 +1773,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
       ) : null}
 
       {/* -------------------------------------------------------------- LOGS */}
-      {tab === "logs" ? (
+      {tab === "usage" ? (
         <>
           <Card theme={theme}>
             <Step
@@ -1844,7 +1862,7 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
 
 
       {/* ---------------------------------------------------------- POWER-UPS */}
-      {tab === "powerups" ? (
+      {tab === "setup" ? (
         <Card theme={theme}>
           <Step theme={theme} index={0} title="Optional maintenance actions" />
           <Note theme={theme}>
@@ -2039,6 +2057,19 @@ export function AgentLinkSurface({ theme, layout, host }: PluginSurfaceProps) {
             </Card>
           ) : null}
         </>
+      ) : null}
+
+      {/* --------------------------------------------------- SESSIONS & AGENTS */}
+      {tab === "usage" ? (
+        <TranscriptUsageSection
+          theme={theme}
+          compact={layout.compact}
+          navigation={navigation}
+          period={usagePeriod}
+          onPeriod={setUsagePeriod}
+          live={live}
+          router={{ loading: periodSpend.isLoading, ok: periodSpend.data?.ok ?? false, message: periodSpend.data?.message ?? null, totals: periodSpend.data?.totals ?? null }}
+        />
       ) : null}
 
       {tab === "routing" ? (
