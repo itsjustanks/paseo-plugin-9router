@@ -2,11 +2,11 @@
   "name": "agent-link",
   "private": true,
   "type": "module",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "preview:ui": "vite --config tests/ui/vite.config.mts",
-    "test": "node ../../tests/router-logic.mjs && node ../../tests/astra.mjs && node ../../tests/catalog.mjs && node ../../tests/routing-logic.mjs && node ../../tests/hook-order.mjs"
+    "test": "node ../../tests/router-logic.mjs && node ../../tests/astra.mjs && node ../../tests/catalog.mjs && node ../../tests/routing-logic.mjs && node ../../tests/usage.mjs && node ../../tests/hook-order.mjs"
   },
   "devDependencies": {
     "@getpaseo/plugin": "0.8.0-beta.1",

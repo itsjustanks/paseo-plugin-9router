@@ -1,5 +1,84 @@
 # Changelog
 
+## 0.16.0 — 2026-09-11
+
+### Six sections and fourteen tabs become six sections and six pages
+
+The surface was a hunt. Tabs that answered the same question are merged into one
+scrolling page each, and nothing was removed — every control, deep link, Command
+Center item and in-page button still works, because merged ids now resolve to the
+page that absorbed them.
+
+| Was | Now |
+| --- | --- |
+| Model catalog · Paseo picker · Astra & custom models | **Models** — one page: search, publish a selection, register custom models |
+| CLI & network · API keys & combos · Token settings | **Routing & Access** — where requests go, plus keys, combos and token settings |
+| Usage & costs · Sessions & agents · Requests & logs | **Usage & Health** — router spend, the transcript report, and failed requests |
+| How it works · Host setup · Maintenance | **Setup** — connection, the walkthrough, and maintenance actions |
+
+Overview and Accounts are unchanged. The merges follow one rule: if two tabs
+answered the same question, holding both forced you to remember which half lived
+where.
+
+### Can the pool serve right now?
+
+Overview gains a **Can the pool serve right now?** card with a **Check now**
+button. It asks the router which models an account can actually serve and shows,
+per blocked model, whether it is rate-limited, resting or has no account at all,
+with the usable-account count and the router's own reason. When nothing can
+serve, it says so plainly and offers Reset backoff in Accounts — that is the
+state where new routed sessions fail, and it previously took a trip to the Models
+page to discover. The readiness data was already available; it was just buried.
+
+### Usage, read from the transcripts
+
+A new **Usage** section on the main surface reads the Claude Code and Codex transcripts on the
+selected daemon — archived sessions, subagents, and sessions started outside Paseo included — and
+joins them to Paseo's project, workspace and agent records.
+
+This closes the gap 0.15.0 documented. 9router's `usageHistory` records only provider, model,
+account and API key, and every Paseo session shares one key, so the router can never say which
+workspace or agent spent what; that is why the 0.13.0–0.14.2 workspace panel had to label its
+figures "whole host" and why it was removed. The transcripts answer from the other end, and they
+also cover traffic that never touched 9router at all — terminal Claude Code and Codex sessions.
+
+- **Compare providers**: Claude and Codex on one zero-based scale, grouped by day, week, month,
+  project or model, as totals or per known session.
+- **Daily activity**: a GitHub-style calendar; selecting a day filters the cards, bars and table.
+- A grouped table by session, project, workspace, model or day — tokens, cache hit rate, requests,
+  tool calls, estimated cost, active time. Sessions open their agent where the host supports it.
+- Each agent's **9Router** tab gains a usage card with that agent's own tokens and estimated cost.
+
+### Two sources, never blended
+
+9router's figures are what it billed for traffic it routed. Transcript figures cover everything but
+are an **estimate at base API prices**, excluding priority processing, long-context premiums and
+plan charges. Every transcript number is labelled "transcript estimate" wherever it appears, the
+two are shown side by side rather than summed, and an unrecorded measurement reads "—" instead of
+zero so a missing value is never mistaken for a real one.
+
+### Notes
+
+- The first scan of a large history takes a few minutes — roughly four on a 2,300-file, 8.7 GB
+  corpus. The section shows its progress and keeps the previous completed scan visible while it
+  works. After that it is incremental, re-parsing only files whose size or mtime changed, four
+  streams at a time, and never blocking plugin startup.
+- Message text, tool results and credentials never leave the parser.
+- Claude and Codex count tokens differently and are normalised: Claude's base input excludes cache
+  reads and writes so they are added to reach total input, while Codex's input already includes
+  them so they are subtracted to obtain uncached input.
+- Routing, the lifecycle hooks, the dashboard button, the composer pill and the agent panel's
+  account controls are unchanged.
+
+### Credit
+
+The transcript parser, indexer, usage and calendar models, base-API pricing table, and the
+provider-comparison and activity-calendar visualisations are adapted from
+[session-usage](https://github.com/panrafal/paseo-plugins/tree/8d33de5ff811096511c856795dfe0a7a41481338/session-usage)
+by **panrafal**, MIT licensed, at commit `8d33de5`. Every adapted file names its source and the
+full licence text is in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). For the complete usage
+report — every grouping dimension, the full filter bar, CSV export — install session-usage itself.
+
 ## 0.15.0 — 2026-09-10
 
 ### The workspace panel is gone; the agent panel stays

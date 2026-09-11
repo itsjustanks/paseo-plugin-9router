@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AgentLinkSurface } from "../../client/surface";
 import { RouterAgentPanel } from "../../client/agent-panel";
 import { RoutingPill } from "../../client/pill";
+import { TranscriptUsageSection } from "../../client/usage";
+import { ScrollView } from "react-native";
 const queryClient = new QueryClient();
 const params = new URLSearchParams(location.search);
 // Render failures and React's hook-order warnings, kept where a headless run can read them.
@@ -32,6 +34,7 @@ function Preview() {
   return <QueryClientProvider client={queryClient}>
     {params.has("agent") ? <RouterAgentPanel {...props} context="agent" workspaceId="ws-1" agentId={agentId} navigation={navigation} />
       : params.has("pill") ? <RoutingPill {...props} workspaceId="ws-1" agentId={agentId} />
+      : params.has("usage") ? <ScrollView style={{ flex: 1, backgroundColor: colors.surface0 }} contentContainerStyle={{ padding: compact ? 16 : 28, maxWidth: 1180, width: "100%", alignSelf: "center" }}><TranscriptUsageSection {...props} compact={compact} navigation={navigation} period="30d" onPeriod={() => {}} live={!params.has("offline")} router={{ loading: false, ok: !params.has("offline"), message: params.has("offline") ? "9router did not answer." : null, totals: { label: "last 30d", requests: 14_820, promptTokens: 61_000_000, completionTokens: 1_900_000, cachedTokens: 52_000_000, cost: 212.6, lastUsed: null } }} /></ScrollView>
       : <AgentLinkSurface {...props} />}
   </QueryClientProvider>;
 }

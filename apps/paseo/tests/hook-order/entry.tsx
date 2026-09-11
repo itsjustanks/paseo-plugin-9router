@@ -11,6 +11,7 @@ import { AgentLinkSurface } from "../../client/surface";
 import { RouterAgentPanel } from "../../client/agent-panel";
 import { RoutingPill } from "../../client/pill";
 import { RoutingSettingsScreen } from "../../client/settings";
+import { AgentUsageCard, TranscriptUsageSection } from "../../client/usage";
 // The same module the vite alias hands the client under "@getpaseo/plugin/client".
 import { releaseRpc, setHostDataReady } from "./stubs/plugin";
 
@@ -27,6 +28,11 @@ export const mounts: Record<string, () => React.ReactElement> = {
   "agent panel (unknown agent)": () => <RouterAgentPanel {...base} context="agent" workspaceId="ws-1" agentId="missing" navigation={navigation} />,
   pill: () => <RoutingPill {...base} workspaceId="ws-1" agentId="agent-1" />,
   "settings screen": () => <RoutingSettingsScreen {...base} navigation={navigation} />,
+  // The surface mounts on Overview, so the Sessions & agents tab's section is mounted on
+  // its own: bars, calendar and table, router side loading then answered.
+  "usage section": () => <TranscriptUsageSection theme={base.theme} compact={false} navigation={navigation} period="30d" onPeriod={() => {}} live router={{ loading: true, ok: false, message: null, totals: null }} />,
+  "usage section (compact, router offline)": () => <TranscriptUsageSection theme={base.theme} compact navigation={undefined} period="all" onPeriod={() => {}} live={false} router={{ loading: false, ok: false, message: "9router did not answer.", totals: null }} />,
+  "agent usage card": () => <AgentUsageCard theme={base.theme} agentId="agent-1" provider="ninerouter" />,
 };
 
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));

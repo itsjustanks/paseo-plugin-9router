@@ -52,12 +52,25 @@ configuration to use the separate 9Router provider. The setup checklist ends wit
 
 | Section | Features |
 | --- | --- |
-| **Overview** | Router connection, account/model counts, next-step guidance, direct/routed CLI state, health findings |
+| **Overview** | Router connection, account/model counts, **Can the pool serve right now?** with a Check now ping, next-step guidance, direct/routed CLI state, health findings |
 | **Accounts** | Sign-in, quota windows, spend caps, account search, health, holds, rotation and priority |
 | **Models** | Complete catalog, search/sort/pages, explicit request tests, shortlist, picker sync, Astra, aliases |
 | **Routing & Access** | CLI diagnostics, proxy state, pxpipe, API keys, fallback combos, token-saving settings |
 | **Usage & Health** | Daily trends, tokens, API-equivalent costs, account usage, failed requests and console logs |
-| **Guide & Setup** | Walkthrough, feature directory, connection setup, remote dashboard, Tailscale, maintenance |
+| **Setup** | Walkthrough, feature directory, connection setup, remote dashboard, Tailscale, maintenance |
+
+Each section is one page. Before 0.16.0 these six sections held fourteen tabs, so finding a
+control meant remembering which half of a section it lived in; tabs that answered the same
+question were merged. Nothing was removed, and older links still resolve — a bookmark or Command
+Center item naming a merged tab opens the page that absorbed it.
+
+### Can the pool serve right now?
+
+Overview answers this directly. **Check now** asks the router which models an account can actually
+serve and lists every blocked one as rate-limited, resting or unserved, with its usable-account
+count and the router's own reason. When nothing can serve — every account rate-limited or backed
+off — it says so and offers Reset backoff, because that is the state where new routed sessions
+fail. Readiness reflects reported account state; Test in the catalog sends a real request.
 
 ### Accounts without the long mixed list
 
@@ -155,10 +168,39 @@ serves every workspace — so a workspace-labelled view of them was misleading (
 shipped one). The host-wide facts live on the main **9Router** surface instead: stuck accounts
 and Reset backoff under **Accounts → Health & holds**, last-day usage under **Usage & Health**.
 
-Usage cannot be split per workspace. 9router records provider, model, account and API key for
-each request (`usageHistory` columns `provider`, `model`, `connectionId`, `apiKey`), and every
-Paseo session shares one key, so nothing ties a request to a workspace. The Usage tab says so
-rather than dressing a host-wide number up as a workspace one.
+**Router** usage cannot be split per workspace. 9router records provider, model, account and API
+key for each request (`usageHistory` columns `provider`, `model`, `connectionId`, `apiKey`), and
+every Paseo session shares one key, so nothing ties a request to a workspace. Those figures are
+always labelled as covering the whole host rather than dressed up as a workspace number.
+
+Since 0.16.0 the **Usage** section answers that question from the other end — see below.
+
+## Usage
+
+**Usage** on the main surface reads the Claude Code and Codex transcripts on the selected daemon,
+including archived sessions, subagents, and sessions started outside Paseo, then joins them to
+Paseo's project, workspace and agent records. That is where per-session, per-workspace and
+per-agent attribution comes from: the router cannot tell you which workspace spent what, but the
+transcripts can, and they also cover traffic that never went through 9router at all — terminal
+Claude Code and Codex sessions included.
+
+- **Compare providers** puts Claude and Codex on one zero-based scale, by day, week, month,
+  project or model.
+- **Daily activity** is a GitHub-style calendar; selecting a day filters everything below it.
+- A grouped table totals by session, project, workspace, model or day, with tokens, cache hit
+  rate, requests, tool calls, estimated cost and active time.
+- Each agent's **9Router** tab carries its own usage card: that agent's tokens and estimated cost.
+
+**Two sources, never blended.** Figures from 9router are what it billed for traffic it actually
+routed. Figures from transcripts cover everything but are an **estimate at base API prices**,
+excluding priority processing, long-context premiums and any plan charges — every transcript
+number is labelled "transcript estimate" wherever it appears. Where a transcript did not record a
+measurement the cell reads "—" rather than zero, and totals show how many sessions are priced.
+
+The first scan of a large history takes a few minutes; the section shows its file count while it
+works and keeps the previous completed scan visible. After that it is incremental, re-reading only
+files whose size or modification time changed. Message text, tool results and credentials never
+leave the parser.
 
 ### Automatic health checks
 
@@ -247,6 +289,20 @@ means everything off.
 
 The optional `agent-link` shell CLI is included at the repository root. It retains its existing
 terminal workflows; this release focuses on the Paseo plugin.
+
+## Credits
+
+The **Usage** section and the per-agent usage card are built on transcript-reading code adapted
+from [session-usage](https://github.com/panrafal/paseo-plugins/tree/8d33de5ff811096511c856795dfe0a7a41481338/session-usage)
+by **panrafal**, used under the MIT License. The transcript parser, the indexer, the usage and
+calendar models, the base-API pricing table, and the provider-comparison and activity-calendar
+visualisations all derive from that project at commit `8d33de5`. Every adapted file carries a
+header naming its source, and the full licence text is reproduced in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+If you want the complete usage report — every grouping dimension, the full filter bar, CSV export
+— install session-usage itself. This plugin takes only what serves routing: where the tokens went,
+per session, workspace and agent, next to what 9router actually billed.
 
 ## License
 

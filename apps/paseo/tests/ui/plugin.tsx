@@ -59,6 +59,9 @@ async function call(contract: any, input: any) {
   if (name === "holds") { await settle(); Object.assign(result, { count: 1, holds: [{ connectionId: "fictional-account-0", provider: "claude", model: "cc/claude-opus-5", connectionName: "Studio account", status: "parked", until: null, lastError: "429 rate limited" }] }); }
   if (name === "spend") { await settle(); Object.assign(result, offline ? { ok: false, message: "9router did not answer." } : { ok: true, totals: { label: "last 1d", requests: 1248, promptTokens: 2400000, completionTokens: 360000, cachedTokens: 1800000, cost: 18.4, lastUsed: null } }); }
   if (name === "clear-hold") Object.assign(result, { ok: true, message: "Demo backoff reset." });
+  // Transcript usage: fictional sessions across 40 days so the bars, calendar and table have shape.
+  if (name === "transcript-usage") { await settle(); Object.assign(result, transcriptUsage()); }
+  if (name === "agent-usage") { await settle(); Object.assign(result, agentUsage(input.agentId)); }
   return contract.output.parse(result);
 }
 export function useRpc(contract: any) { return useCallback((input: unknown) => call(contract, input), [contract]); }
@@ -75,6 +78,44 @@ const routingHealth = () => ({
   pools: [{ pool: "claude", ready: 1, resting: 2, stuck: 1 }, { pool: "codex", ready: 1, resting: 0, stuck: 0 }],
   stuck: offline ? [] : [{ id: "fictional-account-2", provider: "claude", label: "demo3@example.com", backoffLevel: 15, lastError: "429 rate limited", lastErrorAt: null }],
 });
+
+// --- Transcript usage fixtures. Deterministic pseudo-random so screenshots are stable; no real paths or titles.
+const metrics = (input: number, cached: number, output: number, requests: number, cost: number | null, tools = 0, errors = 0) => ({
+  inputTokens: input, uncachedTokens: input - cached, cacheReadTokens: cached, cacheWriteTokens: 0, cacheWrite1hTokens: 0, outputTokens: output, reasoningTokens: null,
+  requests, userMessages: Math.max(1, Math.round(requests / 3)), assistantMessages: requests, toolCalls: tools, toolErrors: errors, toolExecutions: null, executionErrors: null,
+  userCharacters: 400, assistantCharacters: 5000, toolInputCharacters: 900, toolOutputCharacters: 12000, compactions: 0, activeMs: requests * 9000, reportedCostUsd: null, estimatedCostUsd: cost,
+});
+const dayOf = (daysAgo: number) => new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
+const noise = (seed: number) => ((seed * 9301 + 49297) % 233280) / 233280;
+function transcriptUsage() {
+  const sessions: any[] = [];
+  const models = [["claude", "cc/claude-opus-5", 5, 25], ["claude", "claude-fable-5-1", 10, 50], ["codex", "gpt-6-astra", 10, 50], ["codex", "gpt-5.6-sol", 4, 20]] as const;
+  for (let i = 0; i < 36; i++) {
+    const [provider, model, inRate, outRate] = models[i % models.length];
+    const daysAgo = Math.floor(noise(i) * 40);
+    const scale = 0.3 + noise(i * 7) * 2.5;
+    const input = Math.round(2_400_000 * scale), cached = Math.round(input * 0.93), output = Math.round(28_000 * scale), requests = Math.round(60 * scale);
+    const cost = ((input - cached) * inRate + cached * inRate * 0.1 + output * outRate) / 1e6;
+    const buckets: any[] = [{ day: dayOf(daysAgo), model, effort: null, metrics: metrics(input, cached, output, requests, i % 9 === 8 ? null : cost, Math.round(requests * 0.7), i % 5 === 0 ? 2 : 0), tools: { Bash: Math.round(requests * 0.4), Read: Math.round(requests * 0.3) } }];
+    if (i % 4 === 1) buckets.push({ day: dayOf(daysAgo + 1), model, effort: null, metrics: metrics(Math.round(input / 3), Math.round(cached / 3), Math.round(output / 3), Math.round(requests / 3), cost / 3, 5, 0), tools: { Edit: 5 } });
+    const inPaseo = i % 3 !== 2;
+    sessions.push({ id: `${provider}:demo-${i}`, nativeId: `demo-session-${i}`, provider, kind: i % 11 === 10 ? "subagent" : "main", parentId: i % 11 === 10 ? `${provider}:demo-${i - 1}` : null,
+      title: inPaseo ? ["Routed Claude agent", "Direct Claude agent", "Codex review agent", "Docs sweep", "Release 0.16.0 prep"][i % 5] : `${provider === "claude" ? "Claude" : "Codex"} ${String(i).padStart(12, "0")}`,
+      agentId: inPaseo ? (i < 3 ? `agent-${i + 1}` : `demo-agent-${i}`) : null, agentProvider: inPaseo ? (provider === "claude" ? (i % 2 ? "ninerouter" : "claude") : "codex") : null,
+      workspaceId: inPaseo ? (i % 2 ? "ws-1" : "ws-2") : null, workspace: inPaseo ? (i % 2 ? "paseo-plugin-9router" : "unfold-next") : "",
+      projectId: inPaseo ? (i % 2 ? "p-1" : "p-2") : null, project: inPaseo ? (i % 2 ? "Paseo plugins" : "Unfold") : "Outside Paseo / unknown project",
+      cwd: "", branch: "main", labels: [], archived: daysAgo > 20, status: daysAgo === 0 ? "running" : "idle", startedAt: `${dayOf(daysAgo)}T09:00:00.000Z`, endedAt: `${dayOf(daysAgo)}T${String(10 + (i % 9)).padStart(2, "0")}:30:00.000Z`,
+      bytes: Math.round(input * 1.2), coverage: i % 9 === 8 ? "partial" : "available", warnings: i % 9 === 8 ? ["Skipped records larger than 16 MiB; statistics are partial."] : [], buckets });
+  }
+  return { sessions, scanning: false, completed: sessions.length, total: sessions.length, checkedAt: new Date().toISOString(), scanMs: 4200, scannedBytes: 1_900_000_000, warnings: [], missingSessions: 3 };
+}
+function agentUsage(agentId: string) {
+  const m = metrics(9_400_000, 8_900_000, 96_000, 210, 12.4, 150, 3);
+  const found = agentId === "agent-1" || agentId === "agent-2";
+  const byDay = [4, 3, 2, 1, 0].map((ago, i) => ({ day: dayOf(ago), metrics: metrics(Math.round(m.inputTokens * (0.1 + i * 0.05)), Math.round(m.cacheReadTokens * (0.1 + i * 0.05)), Math.round(m.outputTokens * (0.1 + i * 0.05)), 30 + i * 10, 1.2 + i * 0.9) }));
+  return { found, scanning: false, checkedAt: new Date().toISOString(), provider: found ? "claude" : null, coverage: found ? "available" : null, warnings: [], startedAt: `${dayOf(4)}T09:00:00.000Z`, endedAt: new Date().toISOString(), subagents: agentId === "agent-1" ? 2 : 0,
+    metrics: found ? m : metrics(0, 0, 0, 0, null), byModel: found ? [{ model: "cc/claude-opus-5", metrics: metrics(7_000_000, 6_700_000, 70_000, 160, 9.1) }, { model: "cc/claude-sonnet-5", metrics: metrics(2_400_000, 2_200_000, 26_000, 50, 3.3) }] : [], byDay: found ? byDay : [] };
+}
 
 // --- Host client state: workspace, agents, and the Paseo API the workspace panel lists agents through.
 const WORKSPACE = { id: "ws-1", name: "paseo-plugin-9router", projectDisplayName: "Paseo plugins", projectId: "p-1", projectRootPath: "/home/demo/projects", directory: "/home/demo/projects/paseo-plugin-9router", projectKind: "git", kind: "directory", title: null, status: "done", statusEnteredAt: null, archivingAt: null, diffStat: null };
